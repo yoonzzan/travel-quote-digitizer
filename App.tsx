@@ -186,7 +186,7 @@ const App: React.FC = () => {
                 </>
               ) : (
                 <>
-                  JSON으로 변환
+                  AI 분석 시작
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -280,7 +280,7 @@ const App: React.FC = () => {
                  <h3 className="text-xl font-bold text-slate-700 mb-2">데이터가 없습니다</h3>
                  <p className="text-slate-500 leading-relaxed">
                    좌측 메뉴에서 파일을 업로드하고<br/>
-                   <span className="font-bold text-hana-purple">JSON으로 변환</span> 버튼을 눌러주세요.
+                   <span className="font-bold text-hana-purple">AI 분석 시작</span> 버튼을 눌러주세요.
                  </p>
                </div>
              </div>
