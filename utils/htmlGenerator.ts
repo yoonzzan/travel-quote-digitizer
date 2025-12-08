@@ -575,7 +575,7 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
         const totals: Record<string, number> = {};
         items.forEach(item => {
           const curr = (item.currency || 'KRW').toUpperCase();
-          totals[curr] = (totals[curr] || 0) + item.amount;
+          totals[curr] = (totals[curr] || 0) + item.amount + (item.profit || 0);
         });
         const totalStr = Object.entries(totals)
           .map(([curr, amt]) => `${curr} ${new Intl.NumberFormat('ko-KR').format(amt as number)}`)
@@ -586,7 +586,7 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
                   <td class="item-name">${item.detail}</td>
                   <td class="item-price">
                       <span class="currency-label">${item.currency}</span>
-                      ${new Intl.NumberFormat('ko-KR').format(item.amount)}
+                      ${new Intl.NumberFormat('ko-KR').format(item.amount + (item.profit || 0))}
                   </td>
               </tr>
           `).join('');
@@ -616,7 +616,7 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       const totalByCurrency: Record<string, number> = {};
       allItems.forEach(item => {
         const curr = (item.currency || 'KRW').toUpperCase();
-        totalByCurrency[curr] = (totalByCurrency[curr] || 0) + item.amount;
+        totalByCurrency[curr] = (totalByCurrency[curr] || 0) + item.amount + (item.profit || 0);
       });
 
       const totalCostStr = Object.entries(totalByCurrency)

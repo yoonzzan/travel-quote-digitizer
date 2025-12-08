@@ -89,7 +89,7 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
       // Normalize currency key (uppercase, trim)
       let curr = (item.currency || '').trim().toUpperCase();
       if (!curr) curr = 'KRW'; // Default to KRW if empty
-      const amt = item.amount || 0;
+      const amt = (item.amount || 0) + (item.profit || 0);
       totals[curr] = (totals[curr] || 0) + amt;
     });
 
@@ -112,7 +112,7 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
 
     details.forEach(item => {
       let curr = (item.currency || '').trim().toUpperCase();
-      const amt = item.amount || 0;
+      const amt = (item.amount || 0) + (item.profit || 0);
 
       if (!curr || curr === 'KRW' || curr === '원') {
         totalKRW += amt;
@@ -499,11 +499,21 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
                         />
                         <input
                           type="number"
-                          placeholder="금액"
+                          placeholder="원가"
                           value={item.amount || ''}
                           onChange={(e) => handleCostDetailChange(item.originalIndex, 'amount', parseInt(e.target.value) || 0)}
-                          className={`${baseDetailInputStyle} w-32 text-right py-2.5 text-sm font-medium`}
+                          className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium`}
                         />
+                        <input
+                          type="number"
+                          placeholder="수익"
+                          value={item.profit || ''}
+                          onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseInt(e.target.value) || 0)}
+                          className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium text-blue-600 bg-blue-50/30 focus:bg-white`}
+                        />
+                        <div className="w-24 text-right text-xs font-bold text-slate-500">
+                          = {new Intl.NumberFormat('ko-KR').format((item.amount || 0) + (item.profit || 0))}
+                        </div>
                         <button
                           onClick={() => handleDeleteCostDetail(item.originalIndex)}
                           className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
