@@ -11,6 +11,8 @@ export interface TripSummary {
   pax_child: number;
   period_text: string;
   start_date: string;
+  countries?: string[];
+  cities?: string[];
 }
 
 export interface CostDetail {

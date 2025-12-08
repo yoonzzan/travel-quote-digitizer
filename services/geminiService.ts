@@ -138,6 +138,8 @@ const quoteSchema: Schema = {
         pax_child: { type: Type.INTEGER, description: "Child count (아동 인원)" },
         period_text: { type: Type.STRING, description: "Duration (e.g. 3박 5일)" },
         start_date: { type: Type.STRING, description: "Start date (YYYY-MM-DD) or empty" },
+        countries: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of countries visited" },
+        cities: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of cities visited" },
       },
       required: ["title", "pax_adult", "period_text"],
     },
@@ -211,6 +213,8 @@ const normalizeData = (data: any): TravelQuoteData => {
       pax_child: data?.trip_summary?.pax_child || 0,
       period_text: data?.trip_summary?.period_text || '',
       start_date: data?.trip_summary?.start_date || '',
+      countries: data?.trip_summary?.countries || [],
+      cities: data?.trip_summary?.cities || [],
     },
     cost: {
       total_price: data?.cost?.total_price || 0,
@@ -312,7 +316,8 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
     
     Extraction Rules:
     1. **Quote Info**: Code, Agency.
-    2. **Trip Summary**: Title, Pax, Period.
+    2. **Trip Summary**: Title, Pax, Period, Countries, Cities.
+       - **Countries/Cities**: Extract all unique countries and cities mentioned in the itinerary or title.
     3. **Cost**: 
        - **Total Price (Customer Facing)**: This is the final price quoted to the customer. DO NOT sum up the internal details. Find the specific field that says "Total Price" or "Per Person Price".
        - Inclusions/Exclusions.

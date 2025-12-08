@@ -1,7 +1,63 @@
 
 import React, { useMemo } from 'react';
 import { TravelQuoteData, ItineraryItem, CostDetail } from '../types';
-import { Plus, MapPin, ShoppingBag, Trash2, CheckCircle2, XCircle, CalendarPlus, Calculator, RefreshCw, Users } from 'lucide-react';
+import { Plus, MapPin, ShoppingBag, Trash2, CheckCircle2, XCircle, CalendarPlus, Calculator, RefreshCw, Users, X } from 'lucide-react';
+
+interface TagInputProps {
+  label: string;
+  tags: string[];
+  onAdd: (tag: string) => void;
+  onRemove: (index: number) => void;
+  placeholder: string;
+  colorClass?: string;
+}
+
+const TagInput: React.FC<TagInputProps> = ({ label, tags = [], onAdd, onRemove, placeholder, colorClass = "bg-blue-100 text-blue-700" }) => {
+  const [input, setInput] = React.useState("");
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return; // Prevent duplicate tags during IME composition
+    if (e.key === 'Enter' && input.trim()) {
+      e.preventDefault();
+      onAdd(input.trim());
+      setInput("");
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-500 mb-1.5">{label}</label>
+      <div className="flex flex-wrap gap-2 mb-2 min-h-[26px]">
+        {tags.length > 0 ? (
+          tags.map((tag, index) => (
+            <span key={index} className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${colorClass}`}>
+              {tag}
+              <button onClick={() => onRemove(index)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-slate-300 py-1">등록된 태그가 없습니다.</span>
+        )}
+      </div>
+      <div className="relative">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="w-full text-sm p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-hana-mint focus:border-hana-mint outline-none bg-white text-slate-900 placeholder-slate-400 transition-all"
+          placeholder={placeholder}
+        />
+        <button
+          onClick={() => { if (input.trim()) { onAdd(input.trim()); setInput(""); } }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-hana-purple hover:bg-slate-100 rounded-md transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 interface DataEditorProps {
   data: TravelQuoteData;
@@ -17,7 +73,7 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
     });
   };
 
-  const handleTripSummaryChange = (field: string, value: string | number) => {
+  const handleTripSummaryChange = (field: string, value: any) => {
     onChange({
       ...data,
       trip_summary: { ...data.trip_summary, [field]: value }
@@ -264,8 +320,14 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
     <div className="space-y-8 animate-in fade-in duration-500">
 
       {/* Meta Info Grid */}
+      {/* Meta Info Grid */}
       <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-        <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-3">기본 정보 및 비용</h4>
+        <div className="border-b border-slate-100 pb-3 mb-2">
+          <h4 className="text-xl font-bold text-slate-800 inline-block relative">
+            📝 기본 정보 및 비용
+            <span className="absolute bottom-1 left-0 w-full h-3 bg-yellow-200/40 -z-10 rounded-sm"></span>
+          </h4>
+        </div>
 
         {/* Quote Title */}
         <div>
@@ -276,6 +338,40 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
             onChange={(e) => handleTripSummaryChange('title', e.target.value)}
             className={`w-full ${baseInputStyle} font-bold text-lg`}
             placeholder="견적서 제목 입력 (예: 쿠알라룸푸르 3박 4일)"
+          />
+        </div>
+
+        {/* Countries & Cities Tags */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <TagInput
+            label="여행 국가"
+            tags={data.trip_summary.countries || []}
+            onAdd={(tag) => {
+              const newTags = [...(data.trip_summary.countries || []), tag];
+              handleTripSummaryChange('countries', newTags);
+            }}
+            onRemove={(index) => {
+              const newTags = [...(data.trip_summary.countries || [])];
+              newTags.splice(index, 1);
+              handleTripSummaryChange('countries', newTags);
+            }}
+            placeholder="국가 입력 (Enter로 추가)"
+            colorClass="bg-indigo-100 text-indigo-700"
+          />
+          <TagInput
+            label="여행 도시"
+            tags={data.trip_summary.cities || []}
+            onAdd={(tag) => {
+              const newTags = [...(data.trip_summary.cities || []), tag];
+              handleTripSummaryChange('cities', newTags);
+            }}
+            onRemove={(index) => {
+              const newTags = [...(data.trip_summary.cities || [])];
+              newTags.splice(index, 1);
+              handleTripSummaryChange('cities', newTags);
+            }}
+            placeholder="도시 입력 (Enter로 추가)"
+            colorClass="bg-teal-100 text-teal-700"
           />
         </div>
 
@@ -372,6 +468,79 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
           </div>
         </div>
 
+        {/* Inclusions / Exclusions Editors */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Inclusions */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600" /> 포함 사항
+              </h4>
+              <button
+                onClick={() => handleAddListItem('inclusions')}
+                className="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
+              >
+                <Plus className="w-3 h-3" /> 추가
+              </button>
+            </div>
+            <div className="space-y-2">
+              {(data.cost.inclusions || []).map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    value={item}
+                    onChange={(e) => handleListChange('inclusions', idx, e.target.value)}
+                    className={`w-full ${baseInputStyle}`}
+                  />
+                  <button
+                    onClick={() => handleDeleteListItem('inclusions', idx)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {(!data.cost.inclusions || data.cost.inclusions.length === 0) && (
+                <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">포함 사항이 없습니다.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Exclusions */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-red-600" /> 불포함 사항
+              </h4>
+              <button
+                onClick={() => handleAddListItem('exclusions')}
+                className="text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
+              >
+                <Plus className="w-3 h-3" /> 추가
+              </button>
+            </div>
+            <div className="space-y-2">
+              {(data.cost.exclusions || []).map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    value={item}
+                    onChange={(e) => handleListChange('exclusions', idx, e.target.value)}
+                    className={`w-full ${baseInputStyle}`}
+                  />
+                  <button
+                    onClick={() => handleDeleteListItem('exclusions', idx)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {(!data.cost.exclusions || data.cost.exclusions.length === 0) && (
+                <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">불포함 사항이 없습니다.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Manager Note */}
         <div className="mt-4">
           <label className="block text-xs font-bold text-slate-500 mb-1.5">담당자 비고 (선택)</label>
@@ -382,263 +551,207 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
             placeholder="견적서 포함 내역과 상세 일정 사이에 표시될 비고 내용을 입력하세요."
           />
         </div>
+      </div>
 
-        {/* Internal Cost Breakdown Section */}
-        <div className="mt-6 pt-6 border-t border-slate-100 bg-slate-50/50 -mx-6 px-6 pb-2">
+      {/* Internal Cost Breakdown Section */}
+      <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 mt-8">
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 gap-4 border-b border-slate-100 pb-3">
+          <div>
+            <h4 className="text-xl font-bold text-slate-800 inline-block relative mb-2">
+              💰 내부 정산용 상세 원가
+              <span className="absolute bottom-1 left-0 w-full h-3 bg-yellow-200/40 -z-10 rounded-sm"></span>
+            </h4>
+            <p className="text-xs text-slate-500">항목별 상세 금액을 입력하여 원가를 계산합니다.</p>
+          </div>
+        </div>
 
-          {/* Header & Exchange Rate & Pax */}
-          <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => handleCostChange('show_details_in_quote', !data.cost.show_details_in_quote)}
+            className={`
+                relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-hana-purple focus:ring-offset-2
+                ${data.cost.show_details_in_quote ? 'bg-hana-purple' : 'bg-slate-200'}
+              `}
+          >
+            <span
+              className={`
+                  inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                  ${data.cost.show_details_in_quote ? 'translate-x-6' : 'translate-x-1'}
+                `}
+            />
+          </button>
+          <span
+            className="text-sm font-bold text-slate-600 cursor-pointer select-none"
+            onClick={() => handleCostChange('show_details_in_quote', !data.cost.show_details_in_quote)}
+          >
+            고객용 견적서에 상세 내역 포함
+          </span>
+        </div>
 
-            {/* Exchange Rate Calculator Panel - Improved Box UI */}
-            {uniqueCurrencies.length > 0 && (
-              <div className="bg-white p-4 rounded-xl border border-hana-purple/20 shadow-sm flex flex-col gap-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-hana-purple uppercase tracking-wide">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  환율 설정 (자동 감지됨)
-                </div>
-                <div className="flex flex-wrap gap-4">
-                  {uniqueCurrencies.map(curr => (
-                    <div key={curr} className="flex items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 gap-3 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-700">
-                          {curr} 1
-                        </span>
-                        <span className="text-slate-400 font-bold">=</span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          placeholder="금액"
-                          value={(data.cost.exchangeRates || {})[curr] || ''}
-                          onChange={(e) => handleExchangeRateChange(curr, parseFloat(e.target.value) || 0)}
-                          className="w-32 pl-3 pr-10 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-hana-purple/20 focus:border-hana-purple outline-none transition-all shadow-inner"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold pointer-events-none select-none">KRW</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mt-2 gap-4">
-              <div>
-                <h5 className="text-sm font-bold text-slate-700 flex items-center gap-1.5 mb-1">
-                  <Calculator className="w-4 h-4 text-slate-400" /> 내부 정산용 상세 원가
-                </h5>
-                <p className="text-[10px] text-slate-400 mb-2">항목별 상세 금액을 입력하여 원가를 계산합니다.</p>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="showDetailsInQuote"
-                    checked={data.cost.show_details_in_quote || false}
-                    onChange={(e) => handleCostChange('show_details_in_quote', e.target.checked)}
-                    className="w-3.5 h-3.5 text-hana-purple border-slate-300 rounded focus:ring-hana-purple cursor-pointer"
-                  />
-                  <label htmlFor="showDetailsInQuote" className="text-xs font-bold text-hana-purple cursor-pointer select-none">
-                    견적서에 상세 내역 포함 (고객용)
-                  </label>
-                </div>
-              </div>
-
-              {/* Total Panel */}
-              <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto bg-white p-4 rounded-xl border border-slate-200 shadow-sm items-center">
-                <div className="flex flex-col items-end w-full sm:w-auto">
-                  <div className="text-xs text-slate-500 mb-1">
-                    총 원가 합계: <span className="font-semibold text-slate-700">{calculateTotalCostDisplay()}</span>
+        {/* Exchange Rate Calculator Panel - Moved Here */}
+        {uniqueCurrencies.length > 0 && (
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 mb-6">
+            <div className="flex items-center gap-2 text-xs font-bold text-hana-purple uppercase tracking-wide">
+              <RefreshCw className="w-3.5 h-3.5" />
+              환율 설정 (자동 감지됨)
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {uniqueCurrencies.map(curr => (
+                <div key={curr} className="flex items-center bg-white px-3 py-2 rounded-lg border border-slate-200 gap-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-700">
+                      {curr} 1
+                    </span>
+                    <span className="text-slate-400 font-bold">=</span>
                   </div>
-
-                  {uniqueCurrencies.length > 0 && (
-                    <div className="flex flex-col items-end gap-1 mt-1">
-                      <div className="text-sm font-bold text-emerald-600">
-                        ≈ {new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted())} 원 (전체 환산)
-                      </div>
-                      <div className="bg-hana-light/30 px-3 py-1.5 rounded-lg border border-hana-purple/10 flex items-center gap-2">
-                        <span className="text-xs text-hana-purple font-medium">1인당 원가 (KRW 환산)</span>
-                        <span className="text-base font-bold text-hana-purple">
-                          {new Intl.NumberFormat('ko-KR').format(calculatePerPersonKRW())} 원
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="relative">
+                    <input
+                      type="number"
+                      placeholder="금액"
+                      value={(data.cost.exchangeRates || {})[curr] || ''}
+                      onChange={(e) => handleExchangeRateChange(curr, parseFloat(e.target.value) || 0)}
+                      className="w-32 pl-3 pr-10 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-hana-purple/20 focus:border-hana-purple outline-none transition-all shadow-inner"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold pointer-events-none select-none">KRW</span>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Internal Cost List - Single Column Stack */}
-          <div className="flex flex-col gap-4">
-            {costCategories.map((category) => (
-              <div key={category} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center">
-                  <span className="text-sm font-bold text-slate-700">{category}</span>
-                  <span className="text-xs font-medium text-slate-500">
-                    {calculateCategoryTotalDisplay(category)}
+        {/* Total Panel - Moved Here */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+          <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-hana-purple" />
+            <span>총 원가 합계</span>
+          </div>
+
+          <div className="flex flex-col items-end">
+            <div className="text-sm font-semibold text-slate-700 mb-1">
+              {calculateTotalCostDisplay()}
+            </div>
+
+            {uniqueCurrencies.length > 0 && (
+              <div className="flex flex-col items-end gap-1">
+                <div className="text-sm font-bold text-emerald-600">
+                  ≈ {new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted())} 원 (전체 환산)
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-slate-500">1인당 예상 원가:</span>
+                  <span className="text-base font-bold text-hana-purple bg-hana-light/30 px-2 py-0.5 rounded">
+                    {new Intl.NumberFormat('ko-KR').format(calculatePerPersonKRW())} 원
                   </span>
                 </div>
-                <div className="p-4 space-y-3 flex-1">
-                  {(data.cost.details || [])
-                    .map((d, i) => ({ ...d, originalIndex: i }))
-                    .filter(d => d.category === category)
-                    .map((item, localIdx) => (
-                      <div key={localIdx} className="flex gap-2 items-center">
-                        <input
-                          type="text"
-                          placeholder="상세 내용 입력"
-                          value={item.detail || ''}
-                          onChange={(e) => handleCostDetailChange(item.originalIndex, 'detail', e.target.value)}
-                          className={`${baseDetailInputStyle} flex-1 min-w-0 py-2.5 text-sm`}
-                        />
-                        <input
-                          type="text"
-                          value={item.currency || ''}
-                          onChange={(e) => handleCostDetailChange(item.originalIndex, 'currency', e.target.value)}
-                          className={`${baseDetailInputStyle} w-20 text-center px-1 py-2.5 text-sm uppercase`}
-                          placeholder="통화"
-                        />
-                        <input
-                          type="number"
-                          placeholder="원가"
-                          value={item.amount || ''}
-                          onChange={(e) => handleCostDetailChange(item.originalIndex, 'amount', parseInt(e.target.value) || 0)}
-                          className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium`}
-                        />
-                        <input
-                          type="number"
-                          placeholder="수익"
-                          value={item.profit || ''}
-                          onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseInt(e.target.value) || 0)}
-                          className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium text-blue-600 bg-blue-50/30 focus:bg-white`}
-                        />
-                        <div className="w-24 text-right text-xs font-bold text-slate-500">
-                          = {new Intl.NumberFormat('ko-KR').format((item.amount || 0) + (item.profit || 0))}
-                        </div>
-                        <button
-                          onClick={() => handleDeleteCostDetail(item.originalIndex)}
-                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
-                          title="항목 삭제"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Internal Cost List - Single Column Stack */}
+        <div className="flex flex-col gap-4">
+          {costCategories.map((category) => (
+            <div key={category} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+                <span className="text-sm font-bold text-slate-700">{category}</span>
+                <span className="text-xs font-medium text-slate-500">
+                  {calculateCategoryTotalDisplay(category)}
+                </span>
+              </div>
+              <div className="p-4 space-y-3 flex-1">
+                {(data.cost.details || [])
+                  .map((d, i) => ({ ...d, originalIndex: i }))
+                  .filter(d => d.category === category)
+                  .map((item, localIdx) => (
+                    <div key={localIdx} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="상세 내용 입력"
+                        value={item.detail || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'detail', e.target.value)}
+                        className={`${baseDetailInputStyle} flex-1 min-w-0 py-2.5 text-sm`}
+                      />
+                      <input
+                        type="text"
+                        value={item.currency || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'currency', e.target.value)}
+                        className={`${baseDetailInputStyle} w-20 text-center px-1 py-2.5 text-sm uppercase`}
+                        placeholder="통화"
+                      />
+                      <input
+                        type="number"
+                        placeholder="원가"
+                        value={item.amount || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'amount', parseInt(e.target.value) || 0)}
+                        className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium`}
+                      />
+                      <input
+                        type="number"
+                        placeholder="수익"
+                        value={item.profit || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseInt(e.target.value) || 0)}
+                        className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium text-blue-600 bg-blue-50/30 focus:bg-white`}
+                      />
+                      <div className="w-24 text-right text-xs font-bold text-slate-500">
+                        = {new Intl.NumberFormat('ko-KR').format((item.amount || 0) + (item.profit || 0))}
                       </div>
-                    ))}
-                  <button
-                    onClick={() => handleAddCostDetail(category)}
-                    className="w-full py-2.5 text-xs text-slate-500 border border-dashed border-slate-300 rounded hover:border-hana-purple hover:text-hana-purple hover:bg-hana-light/20 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> 항목 추가
-                  </button>
-                </div>
+                      <button
+                        onClick={() => handleDeleteCostDetail(item.originalIndex)}
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                        title="항목 삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                <button
+                  onClick={() => handleAddCostDetail(category)}
+                  className="w-full py-2.5 text-xs text-slate-500 border border-dashed border-slate-300 rounded hover:border-hana-purple hover:text-hana-purple hover:bg-hana-light/20 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" /> 항목 추가
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Inclusions / Exclusions Editors */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Inclusions */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600" /> 포함 사항
-            </h4>
-            <button
-              onClick={() => handleAddListItem('inclusions')}
-              className="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
-            >
-              <Plus className="w-3 h-3" /> 추가
-            </button>
-          </div>
-          <div className="space-y-2">
-            {(data.cost.inclusions || []).map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <input
-                  value={item}
-                  onChange={(e) => handleListChange('inclusions', idx, e.target.value)}
-                  className={`w-full ${baseInputStyle}`}
-                />
-                <button
-                  onClick={() => handleDeleteListItem('inclusions', idx)}
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-            {(!data.cost.inclusions || data.cost.inclusions.length === 0) && (
-              <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">포함 사항이 없습니다.</p>
-            )}
-          </div>
-        </div>
 
-        {/* Exclusions */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <XCircle className="w-4 h-4 text-red-600" /> 불포함 사항
-            </h4>
-            <button
-              onClick={() => handleAddListItem('exclusions')}
-              className="text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
-            >
-              <Plus className="w-3 h-3" /> 추가
-            </button>
-          </div>
-          <div className="space-y-2">
-            {(data.cost.exclusions || []).map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <input
-                  value={item}
-                  onChange={(e) => handleListChange('exclusions', idx, e.target.value)}
-                  className={`w-full ${baseInputStyle}`}
-                />
-                <button
-                  onClick={() => handleDeleteListItem('exclusions', idx)}
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-            {(!data.cost.exclusions || data.cost.exclusions.length === 0) && (
-              <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">불포함 사항이 없습니다.</p>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Itinerary Section (Card Layout - Single Column) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-hana-purple" /> 상세 일정표
-          </h4>
-          <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-200 shadow-sm">
-            <input
-              type="number"
-              className="w-10 text-center text-xs font-bold text-slate-700 outline-none border border-slate-200 rounded focus:border-hana-mint focus:ring-1 focus:ring-hana-mint transition-all py-1"
-              value={parseInt((data.trip_summary.period_text || "0박").match(/(\d+)박/)?.[1] || "0")}
-              onChange={(e) => {
-                const nights = parseInt(e.target.value) || 0;
-                const days = parseInt((data.trip_summary.period_text || "0일").match(/(\d+)일/)?.[1] || "0");
-                handleTripSummaryChange('period_text', `${nights}박 ${days}일`);
-              }}
-            />
-            <span className="text-xs text-slate-400">박</span>
-            <input
-              type="number"
-              className="w-10 text-center text-xs font-bold text-slate-700 outline-none border border-slate-200 rounded focus:border-hana-mint focus:ring-1 focus:ring-hana-mint transition-all py-1"
-              value={parseInt((data.trip_summary.period_text || "0일").match(/(\d+)일/)?.[1] || "0")}
-              onChange={(e) => {
-                const days = parseInt(e.target.value) || 0;
-                const nights = parseInt((data.trip_summary.period_text || "0박").match(/(\d+)박/)?.[1] || "0");
-                handleTripSummaryChange('period_text', `${nights}박 ${days}일`);
-              }}
-            />
-            <span className="text-xs text-slate-400">일</span>
+      <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 mt-8">
+        <div className="border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-4 mb-2">
+            <h4 className="text-xl font-bold text-slate-800 inline-block relative">
+              🗓️ 상세 일정표
+              <span className="absolute bottom-1 left-0 w-full h-3 bg-yellow-200/40 -z-10 rounded-sm"></span>
+            </h4>
+            <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+              <input
+                type="number"
+                className="w-10 text-center text-xs font-bold text-slate-700 outline-none border border-slate-200 rounded focus:border-hana-mint focus:ring-1 focus:ring-hana-mint transition-all py-1 bg-white"
+                value={parseInt((data.trip_summary.period_text || "0박").match(/(\d+)박/)?.[1] || "0")}
+                onChange={(e) => {
+                  const nights = parseInt(e.target.value) || 0;
+                  const days = parseInt((data.trip_summary.period_text || "0일").match(/(\d+)일/)?.[1] || "0");
+                  handleTripSummaryChange('period_text', `${nights}박 ${days}일`);
+                }}
+              />
+              <span className="text-xs text-slate-400">박</span>
+              <input
+                type="number"
+                className="w-10 text-center text-xs font-bold text-slate-700 outline-none border border-slate-200 rounded focus:border-hana-mint focus:ring-1 focus:ring-hana-mint transition-all py-1 bg-white"
+                value={parseInt((data.trip_summary.period_text || "0일").match(/(\d+)일/)?.[1] || "0")}
+                onChange={(e) => {
+                  const days = parseInt(e.target.value) || 0;
+                  const nights = parseInt((data.trip_summary.period_text || "0박").match(/(\d+)박/)?.[1] || "0");
+                  handleTripSummaryChange('period_text', `${nights}박 ${days}일`);
+                }}
+              />
+              <span className="text-xs text-slate-400">일</span>
+            </div>
           </div>
+          <p className="text-xs text-slate-500">여행 기간을 설정하고 일자별 상세 일정을 작성합니다.</p>
         </div>
 
         <div className="flex flex-col gap-6">
