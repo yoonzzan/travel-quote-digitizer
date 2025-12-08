@@ -663,8 +663,8 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
 
         krwTotalDisplay = `
             <div class="krw-conversion-box">
-                <div class="krw-total">≈ ₩${totalKRWStr} <span style="font-size:12px; font-weight:600; color:#166534;">(원화 환산)</span></div>
-                ${pax > 0 ? `<div class="krw-per-person">1인당 약 ₩${perPersonKRWStr}</div>` : ''}
+                <div class="krw-total"><span style="font-size:12px; font-weight:800; color:#166534; margin-right: 4px;">원화 환산</span> ≈ KRW ${totalKRWStr}</div>
+                ${pax > 0 ? `<div class="krw-per-person">1인당 약 KRW ${perPersonKRWStr}</div>` : ''}
             </div>
           `;
 
