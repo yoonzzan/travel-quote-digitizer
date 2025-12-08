@@ -8,7 +8,7 @@ import JsonViewer from './components/JsonViewer';
 import DocumentPreview from './components/DocumentPreview';
 import DataEditor from './components/DataEditor';
 import HanatourLogo from './components/HanatourLogo';
-import { ArrowRight, AlertCircle, Loader2, Edit3, Code, KeyRound, Save, Printer } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2, Edit3, Code, KeyRound, Save, Printer, Download } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<ParsingStatus>(ParsingStatus.IDLE);
@@ -16,7 +16,7 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<'editor' | 'json'>('editor');
-  
+
   // API Key Management
   const [apiKey, setApiKey] = useState<string>('');
   const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
@@ -53,7 +53,7 @@ const App: React.FC = () => {
       setShowApiKeyModal(true);
       return;
     }
-    
+
     setStatus(ParsingStatus.PROCESSING);
     setErrorMsg(null);
 
@@ -70,10 +70,10 @@ const App: React.FC = () => {
 
   const handlePrintPreview = () => {
     if (!data) return;
-    
+
     const htmlContent = generateQuoteHtml(data);
     const printWindow = window.open('', '_blank', 'width=1000,height=900');
-    
+
     if (!printWindow) {
       alert("팝업 차단이 설정되어 있습니다. 차단을 해제하고 다시 시도해주세요.");
       return;
@@ -90,9 +90,23 @@ const App: React.FC = () => {
     };
   };
 
+  const handleDownloadHtml = () => {
+    if (!data) return;
+    const htmlContent = generateQuoteHtml(data);
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Quote_${data.quote_info.code || 'Draft'}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col lg:flex-row overflow-hidden lg:overflow-visible">
-      
+
       {/* API Key Modal */}
       {showApiKeyModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -104,7 +118,7 @@ const App: React.FC = () => {
               <h2 className="text-xl font-bold">API 키 설정</h2>
             </div>
             <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-              서비스를 사용하려면 Google Gemini API 키가 필요합니다.<br/>
+              서비스를 사용하려면 Google Gemini API 키가 필요합니다.<br />
               발급받은 키는 브라우저에만 안전하게 저장됩니다.
             </p>
             <input
@@ -118,9 +132,9 @@ const App: React.FC = () => {
               }}
             />
             <div className="flex gap-2">
-              <a 
-                href="https://aistudio.google.com/app/apikey" 
-                target="_blank" 
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
                 rel="noreferrer"
                 className="flex-1 py-2.5 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 text-center transition-colors"
               >
@@ -156,9 +170,9 @@ const App: React.FC = () => {
               <span className="w-5 h-5 rounded-full bg-hana-light text-hana-purple flex items-center justify-center text-xs">1</span>
               문서 업로드
             </label>
-            <FileUploader 
-              onFileSelect={handleFileSelect} 
-              isProcessing={status === ParsingStatus.PROCESSING} 
+            <FileUploader
+              onFileSelect={handleFileSelect}
+              isProcessing={status === ParsingStatus.PROCESSING}
               selectedFileName={selectedFile?.name}
             />
           </div>
@@ -191,7 +205,7 @@ const App: React.FC = () => {
                 </>
               )}
             </button>
-            
+
             {status === ParsingStatus.ERROR && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 flex gap-2 items-start animate-in fade-in slide-in-from-top-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -212,7 +226,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="p-4 border-t border-slate-100 lg:mt-auto bg-slate-50/50">
-          <button 
+          <button
             onClick={() => setShowApiKeyModal(true)}
             className="w-full text-xs text-slate-400 hover:text-hana-purple transition-colors flex items-center justify-center gap-1 py-2"
           >
@@ -226,7 +240,7 @@ const App: React.FC = () => {
         {/* Header */}
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-8 flex-shrink-0 sticky top-0 z-20">
           <h2 className="font-bold text-lg text-slate-800 hidden lg:block">작업 공간</h2>
-          
+
           {data ? (
             <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
               <div className="flex bg-slate-100 p-1 rounded-lg gap-1">
@@ -234,8 +248,8 @@ const App: React.FC = () => {
                   onClick={() => setActiveTab('editor')}
                   className={`
                     flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all
-                    ${activeTab === 'editor' 
-                      ? 'bg-white text-hana-purple shadow-sm ring-1 ring-black/5' 
+                    ${activeTab === 'editor'
+                      ? 'bg-white text-hana-purple shadow-sm ring-1 ring-black/5'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}
                   `}
                 >
@@ -246,8 +260,8 @@ const App: React.FC = () => {
                   onClick={() => setActiveTab('json')}
                   className={`
                     flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all
-                    ${activeTab === 'json' 
-                      ? 'bg-white text-hana-mint shadow-sm ring-1 ring-black/5' 
+                    ${activeTab === 'json'
+                      ? 'bg-white text-hana-mint shadow-sm ring-1 ring-black/5'
                       : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'}
                   `}
                 >
@@ -255,13 +269,22 @@ const App: React.FC = () => {
                   JSON
                 </button>
               </div>
-              
+
+              <button
+                onClick={handleDownloadHtml}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-hana-purple text-sm font-bold shadow-sm transition-all hover:shadow-md transform active:scale-95"
+                title="HTML 파일로 다운로드"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">HTML 저장</span>
+              </button>
+
               <button
                 onClick={handlePrintPreview}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-hana-purple hover:bg-[#4a227a] text-white text-sm font-bold shadow-md transition-all hover:shadow-lg transform active:scale-95"
               >
                 <Printer className="w-4 h-4" />
-                <span className="hidden sm:inline">견적서 미리보기</span>
+                <span className="hidden sm:inline">견적서 인쇄</span>
               </button>
             </div>
           ) : (
@@ -272,26 +295,26 @@ const App: React.FC = () => {
         {/* Content Scroll Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/30">
           {!data && (
-             <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8">
-               <div className="max-w-md text-center">
-                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-                   <ArrowRight className="w-10 h-10 text-hana-light" />
-                 </div>
-                 <h3 className="text-xl font-bold text-slate-700 mb-2">데이터가 없습니다</h3>
-                 <p className="text-slate-500 leading-relaxed">
-                   좌측 메뉴에서 파일을 업로드하고<br/>
-                   <span className="font-bold text-hana-purple">AI 분석 시작</span> 버튼을 눌러주세요.
-                 </p>
-               </div>
-             </div>
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8">
+              <div className="max-w-md text-center">
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
+                  <ArrowRight className="w-10 h-10 text-hana-light" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-700 mb-2">데이터가 없습니다</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  좌측 메뉴에서 파일을 업로드하고<br />
+                  <span className="font-bold text-hana-purple">AI 분석 시작</span> 버튼을 눌러주세요.
+                </p>
+              </div>
+            </div>
           )}
 
           {data && activeTab === 'editor' && (
             <div className="p-4 lg:p-8 pb-20 lg:pb-20 max-w-5xl mx-auto">
-               <DataEditor 
-                 data={data} 
-                 onChange={(newData) => setData(newData)} 
-               />
+              <DataEditor
+                data={data}
+                onChange={(newData) => setData(newData)}
+              />
             </div>
           )}
 
