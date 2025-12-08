@@ -320,7 +320,10 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
        - **Countries/Cities**: Extract all unique countries and cities mentioned in the itinerary or title.
     3. **Cost**: 
        - **Total Price (Customer Facing)**: This is the final price quoted to the customer. DO NOT sum up the internal details. Find the specific field that says "Total Price" or "Per Person Price".
-       - Inclusions/Exclusions.
+       - **Inclusions/Exclusions**:
+         - **Split items**: If multiple items are listed in one line (comma/slash separated), split them into separate array elements.
+         - **Concise Nouns**: Remove conversational endings (e.g. "불포함입니다", "별도", "포함", "제외"). Keep only the core item name.
+         - Example: "개인경비, 매너팁 불포함" -> ["개인경비", "매너팁"]
        - **Internal Cost Details**:
          - Extract EVERY cost item found in the cost breakdown table.
          - **Include items with 0 cost** (e.g. free services, included items).

@@ -1,7 +1,8 @@
 
 import React, { useMemo } from 'react';
 import { TravelQuoteData, ItineraryItem, CostDetail } from '../types';
-import { Plus, MapPin, ShoppingBag, Trash2, CheckCircle2, XCircle, CalendarPlus, Calculator, RefreshCw, Users, X } from 'lucide-react';
+import { Plus, MapPin, ShoppingBag, Trash2, CheckCircle2, XCircle, CalendarPlus, Calculator, RefreshCw, Users, X, GripVertical } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface TagInputProps {
   label: string;
@@ -216,44 +217,69 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
       activities: [""]
     };
 
-    // Auto-update period text (e.g. 3박 4일 -> 4박 5일)
+    const newItinerary = [...data.itinerary, newDay];
+
+    // Auto-update period text based on CARD COUNT
+    // Preserve the gap between nights and days (e.g. if it was 3N5D (gap 2), and we have 6 cards, make it 4N6D)
     const currentPeriod = data.trip_summary.period_text || "";
     const nightsMatch = currentPeriod.match(/(\d+)박/);
     const daysMatch = currentPeriod.match(/(\d+)일/);
 
-    let newPeriod = currentPeriod;
+    let currentNights = 0;
+    let currentDays = 0;
+
     if (nightsMatch && daysMatch) {
-      const nights = parseInt(nightsMatch[1]);
-      const days = parseInt(daysMatch[1]);
-      newPeriod = `${nights + 1}박 ${days + 1}일`;
+      currentNights = parseInt(nightsMatch[1]);
+      currentDays = parseInt(daysMatch[1]);
     } else if (daysMatch) {
-      const days = parseInt(daysMatch[1]);
-      newPeriod = `${days}박 ${days + 1}일`; // Guessing nights
+      currentDays = parseInt(daysMatch[1]);
+      currentNights = Math.max(0, currentDays - 1);
     }
+
+    const gap = Math.max(0, currentDays - currentNights); // Default gap is 1 (e.g. 3N4D)
+
+    const newDayCount = newItinerary.length;
+    const newNightCount = Math.max(0, newDayCount - (gap || 1)); // Use existing gap or default to 1
+
+    const newPeriod = `${newNightCount}박 ${newDayCount}일`;
 
     onChange({
       ...data,
-      itinerary: [...data.itinerary, newDay],
+      itinerary: newItinerary,
       trip_summary: { ...data.trip_summary, period_text: newPeriod }
     });
   };
 
   const handleDeleteDay = (index: number) => {
     if (window.confirm(`${data.itinerary[index].day}일차 일정을 정말 삭제하시겠습니까?`)) {
-      const newItinerary = [...data.itinerary];
-      newItinerary.splice(index, 1);
+      const list = [...data.itinerary];
+      list.splice(index, 1);
 
-      // Auto-update period text (e.g. 4박 5일 -> 3박 4일)
+      // Renumber days
+      const newItinerary = list.map((day, idx) => ({ ...day, day: idx + 1 }));
+
+      // Auto-update period text based on CARD COUNT
       const currentPeriod = data.trip_summary.period_text || "";
       const nightsMatch = currentPeriod.match(/(\d+)박/);
       const daysMatch = currentPeriod.match(/(\d+)일/);
 
-      let newPeriod = currentPeriod;
+      let currentNights = 0;
+      let currentDays = 0;
+
       if (nightsMatch && daysMatch) {
-        const nights = Math.max(0, parseInt(nightsMatch[1]) - 1);
-        const days = Math.max(1, parseInt(daysMatch[1]) - 1);
-        newPeriod = `${nights}박 ${days}일`;
+        currentNights = parseInt(nightsMatch[1]);
+        currentDays = parseInt(daysMatch[1]);
+      } else if (daysMatch) {
+        currentDays = parseInt(daysMatch[1]);
+        currentNights = Math.max(0, currentDays - 1);
       }
+
+      const gap = Math.max(0, currentDays - currentNights);
+
+      const newDayCount = newItinerary.length;
+      const newNightCount = Math.max(0, newDayCount - (gap || 1));
+
+      const newPeriod = `${newNightCount}박 ${newDayCount}일`;
 
       onChange({
         ...data,
@@ -308,6 +334,41 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
       ...data,
       cost: { ...data.cost, [type]: list }
     });
+  };
+
+
+
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    if (result.source.droppableId !== result.destination.droppableId) return;
+
+    const { source, destination } = result;
+    const listType = source.droppableId;
+
+    if (listType === 'itinerary') {
+      const list = Array.from(data.itinerary);
+      const [removed] = list.splice(source.index, 1);
+      list.splice(destination.index, 0, removed);
+
+      // Re-assign day numbers to match new order
+      const reorderedList = list.map((item, index) => ({ ...item, day: index + 1 }));
+
+      onChange({
+        ...data,
+        itinerary: reorderedList
+      });
+    } else {
+      const type = listType as 'inclusions' | 'exclusions';
+      // Create a new array from the existing list
+      const list = Array.from(data.cost[type] || []);
+      const [removed] = list.splice(source.index, 1);
+      list.splice(destination.index, 0, removed);
+
+      onChange({
+        ...data,
+        cost: { ...data.cost, [type]: list }
+      });
+    }
   };
 
   // Styles
@@ -468,78 +529,119 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
           </div>
         </div>
 
-        {/* Inclusions / Exclusions Editors */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Inclusions */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600" /> 포함 사항
-              </h4>
-              <button
-                onClick={() => handleAddListItem('inclusions')}
-                className="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
-              >
-                <Plus className="w-3 h-3" /> 추가
-              </button>
-            </div>
-            <div className="space-y-2">
-              {(data.cost.inclusions || []).map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <input
-                    value={item}
-                    onChange={(e) => handleListChange('inclusions', idx, e.target.value)}
-                    className={`w-full ${baseInputStyle}`}
-                  />
-                  <button
-                    onClick={() => handleDeleteListItem('inclusions', idx)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Inclusions */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" /> 포함 사항
+                </h4>
+                <button
+                  onClick={() => handleAddListItem('inclusions')}
+                  className="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
+                >
+                  <Plus className="w-3 h-3" /> 추가
+                </button>
+              </div>
+              <Droppable droppableId="inclusions">
+                {(provided) => (
+                  <div
+                    className="space-y-2"
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {(!data.cost.inclusions || data.cost.inclusions.length === 0) && (
-                <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">포함 사항이 없습니다.</p>
-              )}
+                    {(data.cost.inclusions || []).map((item, idx) => (
+                      <Draggable key={`inc-${idx}`} draggableId={`inc-${idx}`} index={idx}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="flex items-center gap-2 bg-white"
+                          >
+                            <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing p-1">
+                              <GripVertical className="w-4 h-4" />
+                            </div>
+                            <input
+                              value={item}
+                              onChange={(e) => handleListChange('inclusions', idx, e.target.value)}
+                              className={`w-full ${baseInputStyle}`}
+                            />
+                            <button
+                              onClick={() => handleDeleteListItem('inclusions', idx)}
+                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    {(!data.cost.inclusions || data.cost.inclusions.length === 0) && (
+                      <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">포함 사항이 없습니다.</p>
+                    )}
+                  </div>
+                )}
+              </Droppable>
             </div>
-          </div>
 
-          {/* Exclusions */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <XCircle className="w-4 h-4 text-red-600" /> 불포함 사항
-              </h4>
-              <button
-                onClick={() => handleAddListItem('exclusions')}
-                className="text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
-              >
-                <Plus className="w-3 h-3" /> 추가
-              </button>
-            </div>
-            <div className="space-y-2">
-              {(data.cost.exclusions || []).map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <input
-                    value={item}
-                    onChange={(e) => handleListChange('exclusions', idx, e.target.value)}
-                    className={`w-full ${baseInputStyle}`}
-                  />
-                  <button
-                    onClick={() => handleDeleteListItem('exclusions', idx)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            {/* Exclusions */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-red-600" /> 불포함 사항
+                </h4>
+                <button
+                  onClick={() => handleAddListItem('exclusions')}
+                  className="text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors font-medium"
+                >
+                  <Plus className="w-3 h-3" /> 추가
+                </button>
+              </div>
+              <Droppable droppableId="exclusions">
+                {(provided) => (
+                  <div
+                    className="space-y-2"
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {(!data.cost.exclusions || data.cost.exclusions.length === 0) && (
-                <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">불포함 사항이 없습니다.</p>
-              )}
+                    {(data.cost.exclusions || []).map((item, idx) => (
+                      <Draggable key={`exc-${idx}`} draggableId={`exc-${idx}`} index={idx}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="flex items-center gap-2 bg-white"
+                          >
+                            <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing p-1">
+                              <GripVertical className="w-4 h-4" />
+                            </div>
+                            <input
+                              value={item}
+                              onChange={(e) => handleListChange('exclusions', idx, e.target.value)}
+                              className={`w-full ${baseInputStyle}`}
+                            />
+                            <button
+                              onClick={() => handleDeleteListItem('exclusions', idx)}
+                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    {(!data.cost.exclusions || data.cost.exclusions.length === 0) && (
+                      <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-lg">불포함 사항이 없습니다.</p>
+                    )}
+                  </div>
+                )}
+              </Droppable>
             </div>
           </div>
-        </div>
+        </DragDropContext>
 
         {/* Manager Note */}
         <div className="mt-4">
@@ -571,13 +673,13 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
             className={`
                 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-hana-purple focus:ring-offset-2
                 ${data.cost.show_details_in_quote ? 'bg-hana-purple' : 'bg-slate-200'}
-              `}
+      `}
           >
             <span
               className={`
                   inline-block h-4 w-4 transform rounded-full bg-white transition-transform
                   ${data.cost.show_details_in_quote ? 'translate-x-6' : 'translate-x-1'}
-                `}
+      `}
             />
           </button>
           <span
@@ -754,149 +856,172 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
           <p className="text-xs text-slate-500">여행 기간을 설정하고 일자별 상세 일정을 작성합니다.</p>
         </div>
 
-        <div className="flex flex-col gap-6">
-          {(data.itinerary || []).map((day, dayIdx) => (
-            <div key={dayIdx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-              {/* Day Header */}
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center gap-3">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-bold text-slate-500">Day</span>
-                  <input
-                    type="number"
-                    value={day.day}
-                    onChange={(e) => handleItineraryChange(dayIdx, 'day', parseInt(e.target.value) || 0)}
-                    className="w-10 text-center font-bold text-lg bg-transparent border-none focus:ring-0 p-0 text-hana-purple"
-                  />
-                </div>
-                <div className="flex-1 flex gap-2">
-                  <input
-                    type="text"
-                    value={day.location || ''}
-                    onChange={(e) => handleItineraryChange(dayIdx, 'location', e.target.value)}
-                    className="flex-1 text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:border-hana-mint focus:ring-1 focus:ring-hana-mint outline-none"
-                    placeholder="지역"
-                  />
-                  <input
-                    type="text"
-                    value={day.transport || ''}
-                    onChange={(e) => handleItineraryChange(dayIdx, 'transport', e.target.value)}
-                    className="w-20 text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:border-hana-mint focus:ring-1 focus:ring-hana-mint outline-none text-slate-500"
-                    placeholder="교통"
-                  />
-                </div>
-                <button
-                  onClick={() => handleDeleteDay(dayIdx)}
-                  className="text-slate-300 hover:text-red-500 transition-colors"
-                  title="Day 삭제"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Day Body (Responsive Flex) */}
-              <div className="p-4 flex flex-col md:flex-row gap-6">
-                {/* Left: Hotel & Meals */}
-                <div className="md:w-1/3 flex flex-col gap-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">숙소 (Hotel)</label>
-                    <input
-                      type="text"
-                      value={day.hotel || ''}
-                      onChange={(e) => handleItineraryChange(dayIdx, 'hotel', e.target.value)}
-                      className="w-full text-xs font-medium text-hana-purple bg-hana-light/30 border border-hana-light/50 rounded px-2 py-2 focus:ring-1 focus:ring-hana-purple outline-none placeholder-purple-300 transition-colors"
-                      placeholder="숙소명"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">식사 (Meals)</label>
-                    <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
-                      <div className="flex-1 flex flex-col border-r border-slate-200 relative focus-within:z-10">
-                        <span className="px-2 py-1.5 text-[10px] text-slate-400 font-bold border-b border-slate-100 block bg-slate-50">조식</span>
-                        <input
-                          value={day.meals.breakfast || ''}
-                          onChange={(e) => {
-                            const newMeals = { ...day.meals, breakfast: e.target.value };
-                            handleItineraryChange(dayIdx, 'meals', newMeals);
-                          }}
-                          className="w-full text-xs py-2.5 px-2 bg-white outline-none text-center transition-all focus:ring-2 focus:ring-inset focus:ring-hana-mint focus:bg-hana-light/5"
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col border-r border-slate-200 relative focus-within:z-10">
-                        <span className="px-2 py-1.5 text-[10px] text-slate-400 font-bold border-b border-slate-100 block bg-slate-50">중식</span>
-                        <input
-                          value={day.meals.lunch || ''}
-                          onChange={(e) => {
-                            const newMeals = { ...day.meals, lunch: e.target.value };
-                            handleItineraryChange(dayIdx, 'meals', newMeals);
-                          }}
-                          className="w-full text-xs py-2.5 px-2 bg-white outline-none text-center transition-all focus:ring-2 focus:ring-inset focus:ring-hana-mint focus:bg-hana-light/5"
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col relative focus-within:z-10">
-                        <span className="px-2 py-1.5 text-[10px] text-slate-400 font-bold border-b border-slate-100 block bg-slate-50">석식</span>
-                        <input
-                          value={day.meals.dinner || ''}
-                          onChange={(e) => {
-                            const newMeals = { ...day.meals, dinner: e.target.value };
-                            handleItineraryChange(dayIdx, 'meals', newMeals);
-                          }}
-                          className="w-full text-xs py-2.5 px-2 bg-white outline-none text-center transition-all focus:ring-2 focus:ring-inset focus:ring-hana-mint focus:bg-hana-light/5"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: Activities */}
-                <div className="md:w-2/3 flex flex-col gap-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">일정 (Activities)</label>
-                  <div className="space-y-2">
-                    {day.activities.map((act, actIdx) => (
-                      <div key={actIdx} className="flex gap-2 items-center bg-slate-50/50 rounded-lg p-1.5 border border-slate-100 group focus-within:border-hana-mint focus-within:ring-1 focus-within:ring-hana-mint transition-all">
-                        <span className="w-1.5 h-1.5 rounded-full bg-hana-mint flex-shrink-0 ml-1.5" />
-                        <input
-                          value={act || ''}
-                          onChange={(e) => handleActivityChange(dayIdx, actIdx, e.target.value)}
-                          className="flex-1 text-sm bg-transparent border-none focus:ring-0 outline-none transition-colors"
-                          placeholder="일정 내용 입력"
-                        />
-                        <div className="flex-shrink-0 flex items-center">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="itinerary">
+            {(provided) => (
+              <div
+                className="flex flex-col gap-6"
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+              >
+                {(data.itinerary || []).map((day, dayIdx) => (
+                  <Draggable key={`day-${dayIdx}`} draggableId={`day-${dayIdx}`} index={dayIdx}>
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow"
+                      >
+                        {/* Day Header */}
+                        <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                          <div {...provided.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing p-1">
+                            <GripVertical className="w-4 h-4" />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-slate-500">Day</span>
+                            <input
+                              type="number"
+                              value={day.day}
+                              onChange={(e) => handleItineraryChange(dayIdx, 'day', parseInt(e.target.value) || 0)}
+                              className="w-10 text-center font-bold text-lg bg-transparent border-none focus:ring-0 p-0 text-hana-purple"
+                            />
+                          </div>
+                          <div className="flex-1 flex gap-2">
+                            <input
+                              type="text"
+                              value={day.location || ''}
+                              onChange={(e) => handleItineraryChange(dayIdx, 'location', e.target.value)}
+                              className="flex-1 text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:border-hana-mint focus:ring-1 focus:ring-hana-mint outline-none"
+                              placeholder="지역"
+                            />
+                            <input
+                              type="text"
+                              value={day.transport || ''}
+                              onChange={(e) => handleItineraryChange(dayIdx, 'transport', e.target.value)}
+                              className="w-20 text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:border-hana-mint focus:ring-1 focus:ring-hana-mint outline-none text-slate-500"
+                              placeholder="교통"
+                            />
+                          </div>
                           <button
-                            onClick={() => handleDeleteActivity(dayIdx, actIdx)}
-                            className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors flex items-center justify-center"
-                            title="일정 삭제"
+                            onClick={() => handleDeleteDay(dayIdx)}
+                            className="text-slate-300 hover:text-red-500 transition-colors"
+                            title="Day 삭제"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => handleAddActivity(dayIdx)}
-                      className="w-full py-2 text-xs text-hana-purple/70 hover:text-hana-purple border border-dashed border-hana-purple/30 hover:border-hana-purple/60 rounded-lg flex items-center justify-center gap-1.5 transition-all hover:bg-hana-light/20"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> 일정 추가
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
 
-          {/* Add Day Card */}
-          <button
-            onClick={handleAddDay}
-            className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-hana-purple hover:border-hana-purple hover:bg-white transition-all min-h-[100px] py-8"
-          >
-            <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-              <CalendarPlus className="w-5 h-5" />
-            </div>
-            <span className="font-bold text-sm">새로운 날짜(Day) 추가</span>
-          </button>
-        </div>
+                        {/* Day Body (Responsive Flex) */}
+                        <div className="p-4 flex flex-col md:flex-row gap-6">
+                          {/* Left: Hotel & Meals */}
+                          <div className="md:w-1/3 flex flex-col gap-4">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">숙소 (Hotel)</label>
+                              <input
+                                type="text"
+                                value={day.hotel || ''}
+                                onChange={(e) => handleItineraryChange(dayIdx, 'hotel', e.target.value)}
+                                className="w-full text-xs font-medium text-hana-purple bg-hana-light/30 border border-hana-light/50 rounded px-2 py-2 focus:ring-1 focus:ring-hana-purple outline-none placeholder-purple-300 transition-colors"
+                                placeholder="숙소명"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">식사 (Meals)</label>
+                              <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
+                                <div className="flex-1 flex flex-col border-r border-slate-200 relative focus-within:z-10">
+                                  <span className="px-2 py-1.5 text-[10px] text-slate-400 font-bold border-b border-slate-100 block bg-slate-50">조식</span>
+                                  <input
+                                    value={day.meals.breakfast || ''}
+                                    onChange={(e) => {
+                                      const newMeals = { ...day.meals, breakfast: e.target.value };
+                                      handleItineraryChange(dayIdx, 'meals', newMeals);
+                                    }}
+                                    className="w-full text-xs py-2.5 px-2 bg-white outline-none text-center transition-all focus:ring-2 focus:ring-inset focus:ring-hana-mint focus:bg-hana-light/5"
+                                  />
+                                </div>
+                                <div className="flex-1 flex flex-col border-r border-slate-200 relative focus-within:z-10">
+                                  <span className="px-2 py-1.5 text-[10px] text-slate-400 font-bold border-b border-slate-100 block bg-slate-50">중식</span>
+                                  <input
+                                    value={day.meals.lunch || ''}
+                                    onChange={(e) => {
+                                      const newMeals = { ...day.meals, lunch: e.target.value };
+                                      handleItineraryChange(dayIdx, 'meals', newMeals);
+                                    }}
+                                    className="w-full text-xs py-2.5 px-2 bg-white outline-none text-center transition-all focus:ring-2 focus:ring-inset focus:ring-hana-mint focus:bg-hana-light/5"
+                                  />
+                                </div>
+                                <div className="flex-1 flex flex-col relative focus-within:z-10">
+                                  <span className="px-2 py-1.5 text-[10px] text-slate-400 font-bold border-b border-slate-100 block bg-slate-50">석식</span>
+                                  <input
+                                    value={day.meals.dinner || ''}
+                                    onChange={(e) => {
+                                      const newMeals = { ...day.meals, dinner: e.target.value };
+                                      handleItineraryChange(dayIdx, 'meals', newMeals);
+                                    }}
+                                    className="w-full text-xs py-2.5 px-2 bg-white outline-none text-center transition-all focus:ring-2 focus:ring-inset focus:ring-hana-mint focus:bg-hana-light/5"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: Activities */}
+                          <div className="md:w-2/3 flex flex-col gap-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">일정 (Activities)</label>
+                            <div className="space-y-2">
+                              {day.activities.map((act, actIdx) => (
+                                <div key={actIdx} className="flex gap-2 items-center bg-slate-50/50 rounded-lg p-1.5 border border-slate-100 group focus-within:border-hana-mint focus-within:ring-1 focus-within:ring-hana-mint transition-all">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-hana-mint flex-shrink-0 ml-1.5" />
+                                  <input
+                                    value={act || ''}
+                                    onChange={(e) => handleActivityChange(dayIdx, actIdx, e.target.value)}
+                                    className="flex-1 text-sm bg-transparent border-none focus:ring-0 outline-none transition-colors"
+                                    placeholder="일정 내용 입력"
+                                  />
+                                  <div className="flex-shrink-0 flex items-center">
+                                    <button
+                                      onClick={() => handleDeleteActivity(dayIdx, actIdx)}
+                                      className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors flex items-center justify-center"
+                                      title="일정 삭제"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              <button
+                                onClick={() => handleAddActivity(dayIdx)}
+                                className="w-full py-2 text-xs text-hana-purple/70 hover:text-hana-purple border border-dashed border-hana-purple/30 hover:border-hana-purple/60 rounded-lg flex items-center justify-center gap-1.5 transition-all hover:bg-hana-light/20"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> 일정 추가
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
+
+        {/* Add Day Card */}
+        <button
+          onClick={handleAddDay}
+          className="w-full bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-hana-purple hover:border-hana-purple hover:bg-white transition-all min-h-[100px] py-8"
+        >
+          <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+            <CalendarPlus className="w-5 h-5" />
+          </div>
+          <span className="font-bold text-sm">새로운 날짜(Day) 추가</span>
+        </button>
       </div>
     </div>
+
   );
 };
 

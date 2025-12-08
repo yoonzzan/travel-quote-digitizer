@@ -29,8 +29,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1d5HhywoHnemlEmBhk82QnK
   - 텍스트 파일 (`.txt`)
 - **Google Gemini AI 기반 자동 데이터 추출**
   - 견적 정보 (코드, 여행사명)
-  - 여행 요약 (제목, 인원, 기간, 출발일)
+  - 여행 요약 (제목, 인원, 기간, 출발일, **국가/도시**)
   - 비용 상세 (총액, 통화, 포함/불포함 사항, 내부 원가)
+  - **스마트 파싱**: 포함/불포함 사항의 서술형 문구를 핵심 명사로 자동 변환 및 리스트화
   - 일별 일정 (위치, 교통, 활동, 식사, 숙소)
 
 ### 2. 데이터 편집 및 관리
@@ -43,6 +44,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/1d5HhywoHnemlEmBhk82QnK
   - 여러 통화 동시 관리 (KRW, USD, SGD, RM 등)
   - 환율 설정 및 자동 환산
   - 내부 정산용 원가 계산
+- **수익 관리 (Profit Margin)**
+  - 각 항목별 원가(Cost)와 수익(Profit) 분리 입력
+  - 총 합계(Total Sum) 자동 계산 (원가 + 수익)
+- **여행 국가 및 도시 관리**
+  - 태그(Tag) 형태의 직관적인 국가/도시 입력 UI
+  - AI가 문서에서 국가와 도시 정보를 자동 추출
 - **카테고리별 원가 관리**
   - 호텔, 차량, 가이드, 관광지, 식사, 기타
   - 항목별 상세 금액 입력 및 합계 계산
@@ -147,6 +154,8 @@ interface TravelQuoteData {
     pax_child: number;  // 아동 인원
     period_text: string; // 기간 (예: "3박 5일")
     start_date: string;  // 출발일 (YYYY-MM-DD)
+    countries?: string[]; // 여행 국가 (태그)
+    cities?: string[];    // 여행 도시 (태그)
   };
   
   cost: {
@@ -160,6 +169,7 @@ interface TravelQuoteData {
     internal_pax?: number;            // 내부 정산용 인원수 (구버전 호환)
     internal_pax_adult?: number;      // 내부 정산용 성인 인원
     internal_pax_child?: number;      // 내부 정산용 아동 인원
+    show_details_in_quote?: boolean;  // 견적서에 상세 내역 포함 여부
   };
   
   itinerary: ItineraryItem[];        // 일별 일정
@@ -182,7 +192,8 @@ interface CostDetail {
   category: string;      // 카테고리 (호텔, 차량, 가이드, 관광지, 식사, 기타)
   detail: string;        // 상세 항목
   currency: string;      // 통화
-  amount: number;        // 금액
+  amount: number;        // 원가 (Cost)
+  profit?: number;       // 수익 (Profit)
   note?: string;         // 비고
 }
 ```
