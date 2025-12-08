@@ -1,0 +1,5 @@
+{
+  "name": "Travel Quote Digitizer",
+  "description": "A React application that uses Gemini 2.5 Flash to extract structured JSON data from images of travel quotes and itineraries.",
+  "requestFramePermissions": []
+}
