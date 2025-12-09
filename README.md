@@ -50,13 +50,16 @@ View your app in AI Studio: https://ai.studio/apps/drive/1d5HhywoHnemlEmBhk82QnK
 - **여행 국가 및 도시 관리**
   - 태그(Tag) 형태의 직관적인 국가/도시 입력 UI
   - AI가 문서에서 국가와 도시 정보를 자동 추출
-- **카테고리별 원가 관리**
+- **카테고리별 원가 관리 고도화**
   - 호텔, 차량, 가이드, 관광지, 식사, 기타
+  - **상세 필드 추가**: 단위(Unit), 수량(Q'ty), 횟수(Frequency), 단가(Unit Price)
+  - **자동 계산**: 수량 × 횟수 × 단가 = 원가(Cost) 자동 산출
   - 항목별 상세 금액 입력 및 합계 계산
 - **담당자 비고 (Manager Note)**
   - 견적서 상단에 노출될 담당자 코멘트 작성
   - 말풍선 스타일의 디자인으로 친근한 메시지 전달
 - **일정 관리 편의성**
+  - **드래그 앤 드롭**: 일차(Day) 카드를 드래그하여 손쉽게 순서 변경
   - 여행 기간(박/일) 자동 계산 및 수동 수정 기능
   - 일정 추가/삭제 시 기간 자동 업데이트
 
@@ -192,7 +195,11 @@ interface CostDetail {
   category: string;      // 카테고리 (호텔, 차량, 가이드, 관광지, 식사, 기타)
   detail: string;        // 상세 항목
   currency: string;      // 통화
-  amount: number;        // 원가 (Cost)
+  amount: number;        // 원가 (Cost) - 자동 계산됨
+  unit?: string;         // 단위 (박, 명, 대 등)
+  quantity?: number;     // 수량
+  frequency?: number;    // 횟수
+  unit_price?: number;   // 단가
   profit?: number;       // 수익 (Profit)
   note?: string;         // 비고
 }
