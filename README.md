@@ -103,11 +103,16 @@ travel-quote-digitizer/
 │                              # - ParsingStatus enum
 │
 ├── components/
-│   ├── DataEditor.tsx        # 데이터 편집기 (핵심 컴포넌트)
-│   │                          # - 견적 정보 편집
-│   │                          # - 비용 및 원가 관리
-│   │                          # - 일정 편집
-│   │                          # - 환율 설정 및 계산
+│   ├── DataEditor.tsx        # 데이터 편집기 컨테이너
+│   │                          # - 하위 에디터 컴포넌트 조합 및 상태 관리
+│   │
+│   ├── editor/               # [New] 에디터 하위 컴포넌트
+│   │   ├── TripSummaryEditor.tsx # 여행 개요 및 기본 정보 편집
+│   │   ├── CostEditor.tsx        # 원가 내역 및 환율 관리
+│   │   └── ItineraryEditor.tsx   # 상세 일정 관리 (드래그 앤 드롭)
+│   │
+│   ├── common/               # [New] 공통 UI 컴포넌트
+│   │   └── TagInput.tsx          # 태그 입력 컴포넌트
 │   │
 │   ├── FileUploader.tsx      # 파일 업로드 컴포넌트
 │   │                          # - 드래그 앤 드롭 지원
