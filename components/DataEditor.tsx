@@ -91,9 +91,34 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
   // --- Cost Details Handlers ---
   const handleAddCostDetail = (category: string) => {
     const currentDetails = data.cost.details || [];
+
+    // Find the last item in this category to inherit currency
+    // We filter by category to find the relevant previous item
+    const categoryItems = currentDetails.filter(item => item.category === category);
+    const lastItem = categoryItems.length > 0 ? categoryItems[categoryItems.length - 1] : null;
+
+    // Inherit currency if available, otherwise default to KRW
+    // Ensure we trim and check for empty string
+    let inheritedCurrency = 'KRW';
+    if (lastItem && lastItem.currency && lastItem.currency.trim() !== '') {
+      inheritedCurrency = lastItem.currency;
+    }
+
+    const newItem: CostDetail = {
+      category,
+      detail: "",
+      unit: "단위",
+      quantity: 1,
+      frequency: 1,
+      currency: inheritedCurrency,
+      unit_price: 0,
+      amount: 0,
+      profit: 0
+    };
+
     onChange({
       ...data,
-      cost: { ...data.cost, details: [...currentDetails, { category, detail: '', currency: 'KRW', amount: 0, unit: '', quantity: 1, frequency: 1, unit_price: 0 }] }
+      cost: { ...data.cost, details: [...currentDetails, newItem] }
     });
   };
 

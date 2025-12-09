@@ -334,6 +334,7 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
          - Extract **EVERY** cost item. Include items with 0 cost.
          - **Merged Amount Cells**: If price appears only in the first row of a group, assign it to the first item.
          - **Rows with Empty Amount**: **MUST** extract rows with valid Detail but empty/0 Amount as separate items with **Amount = 0**.
+         - **Empty Row Exclusion**: If a row has **NO Description/Detail** (or just generic placeholders like "기타") AND Amount is 0 (or empty), **DO NOT extract it**. Only extract if there is a specific Description.
          - Categorize into: "호텔", "차량", "가이드", "관광지", "식사", "기타".
     4. **Itinerary**: Day-by-day schedule.
 

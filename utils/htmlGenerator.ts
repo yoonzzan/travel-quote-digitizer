@@ -8,16 +8,12 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
   const formattedPrice = `${cost.currency} ${new Intl.NumberFormat('ko-KR').format(cost.total_price)}`;
 
   // Hanatour SVG Logo (Inline for Email/Print safety)
+  // Hanatour Logo Image (Using img tag with public path - requires server context or base64 for offline)
+  // For now, we use the public path which works in Print Preview from the app.
   const logoSvg = `
-    <svg width="120" height="40" viewBox="0 0 180 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Icon -->
-      <path d="M16 48V12H6V48H16Z" fill="white"/>
-      <path d="M54 48V12H44V48H54Z" fill="white"/>
-      <path d="M41 24L19 16V24H41Z" fill="#00D3C5"/>
-      <path d="M19 36L41 44V36H19Z" fill="#00D3C5"/>
-      <!-- Text: Using SVG text to ensure it renders without font issues, approximating position -->
-      <text x="65" y="38" font-family="sans-serif" font-weight="bold" font-size="28" fill="white" letter-spacing="-1">하나투어</text>
-    </svg>
+    <div style="width: 200px; height: 60px; overflow: hidden; display: flex; align-items: center; justify-content: flex-start;">
+      <img src="/hanatour_logo.png" alt="하나투어" style="height: 100%; width: 100%; object-fit: contain; transform: scale(2.8) translateX(-8px);" />
+    </div>
   `;
 
   // Determine Pax counts (prioritize internal cost pax if set)
@@ -50,14 +46,19 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       border-radius: 16px;
       overflow: hidden;
     }
+    .brand-header {
+      background: white;
+      padding: 24px 40px 10px 40px;
+      border-bottom: 1px solid #f1f5f9;
+    }
     .header {
       background: linear-gradient(135deg, #5e2b97 0%, #4c1d80 100%);
       color: white;
-      padding: 40px;
+      padding: 30px 40px;
       position: relative;
     }
     .logo-container {
-      margin-bottom: 20px;
+      /* margin-bottom removed as it is now in brand-header */
     }
     .header h1 {
       margin: 0;
@@ -72,7 +73,7 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
     }
     .header-badge {
       position: absolute;
-      top: 40px;
+      top: 30px;
       right: 40px;
       background: rgba(255, 255, 255, 0.2);
       padding: 8px 16px;
@@ -449,11 +450,14 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
 </head>
 <body>
   <div class="container">
+    <!-- Brand Header with Colored Logo -->
+    <div class="brand-header">
+      ${logoSvg}
+    </div>
+
+    <!-- Title Banner -->
     <div class="header">
-      <div class="logo-container">
-        ${logoSvg}
-      </div>
-      <div class="header-badge">${quote_info.agency}</div>
+      <div class="header-badge">${quote_info.agency || '하나투어'}</div>
       <h1>${trip_summary.title || '여행 견적서'}</h1>
       <p>견적 번호: ${quote_info.code}</p>
     </div>
