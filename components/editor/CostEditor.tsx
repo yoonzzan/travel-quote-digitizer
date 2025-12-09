@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { TravelQuoteData, CostDetail } from '../../types';
-import { Plus, Trash2, CheckCircle2, XCircle, Calculator, RefreshCw, GripVertical } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, XCircle, Calculator, RefreshCw, GripVertical, ChevronDown, ChevronUp, MessageSquareQuote } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 
 interface CostEditorProps {
@@ -9,6 +9,7 @@ interface CostEditorProps {
 }
 
 const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
+    const [showDetails, setShowDetails] = React.useState(true);
     const baseInputStyle = "text-sm p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-hana-mint focus:border-hana-mint outline-none bg-white text-slate-900 placeholder-slate-400 transition-all";
     const baseDetailInputStyle = "text-xs p-2 border border-slate-300 rounded focus:border-hana-mint focus:ring-1 focus:ring-hana-mint outline-none bg-white text-slate-900 placeholder-slate-400 transition-all";
     const costCategories = ["호텔", "차량", "가이드", "관광지", "식사", "기타"];
@@ -46,20 +47,23 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
         const categoryItems = currentDetails.filter(item => item.category === category);
         const lastItem = categoryItems.length > 0 ? categoryItems[categoryItems.length - 1] : null;
 
-        // Inherit currency if available, otherwise default to KRW
-        let inheritedCurrency = 'KRW';
+        // Inherit currency if available, otherwise default to empty (KRW placeholder)
+        let inheritedCurrency = '';
         if (lastItem && lastItem.currency && lastItem.currency.trim() !== '') {
-            inheritedCurrency = lastItem.currency;
+            // Only inherit if it's NOT KRW (since KRW is the default placeholder)
+            if (lastItem.currency.toUpperCase() !== 'KRW') {
+                inheritedCurrency = lastItem.currency;
+            }
         }
 
         const newItem: CostDetail = {
             category,
             detail: "",
-            unit: "단위",
-            quantity: 1,
-            frequency: 1,
+            unit: "",
+            quantity: undefined,
+            frequency: undefined,
             currency: inheritedCurrency,
-            unit_price: 0,
+            unit_price: undefined,
             amount: 0,
             profit: 0
         };
@@ -119,7 +123,7 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
         return Array.from(currencies);
     }, [data.cost.details]);
 
-    const calculateTotalsByCurrency = (items: CostDetail[]) => {
+    const calculateTotalsByCurrency = (items: CostDetail[], field: 'amount' | 'profit' | 'total' = 'total') => {
         if (items.length === 0) return "0";
 
         const totals: Record<string, number> = {};
@@ -127,8 +131,13 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
         items.forEach(item => {
             let curr = (item.currency || '').trim().toUpperCase();
             if (!curr) curr = 'KRW';
-            const amt = (item.amount || 0) + (item.profit || 0);
-            totals[curr] = (totals[curr] || 0) + amt;
+
+            let val = 0;
+            if (field === 'amount') val = item.amount || 0;
+            else if (field === 'profit') val = item.profit || 0;
+            else val = (item.amount || 0) + (item.profit || 0);
+
+            totals[curr] = (totals[curr] || 0) + val;
         });
 
         return Object.entries(totals)
@@ -138,16 +147,16 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
             .join(' + ');
     };
 
-    const calculateCategoryTotalDisplay = (category: string) => {
+    const calculateCategoryTotalDisplay = (category: string, field: 'amount' | 'profit' | 'total' = 'total') => {
         const items = (data.cost.details || []).filter(d => d.category === category);
-        return calculateTotalsByCurrency(items);
+        return calculateTotalsByCurrency(items, field);
     };
 
     const calculateTotalCostDisplay = () => {
         return calculateTotalsByCurrency(data.cost.details || []);
     };
 
-    const calculateTotalKRWConverted = () => {
+    const calculateTotalKRWConverted = (field: 'amount' | 'profit' | 'total' = 'total') => {
         const details = data.cost.details || [];
         const rates = data.cost.exchangeRates || {};
         let totalKRW = 0;
@@ -155,13 +164,17 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
         details.forEach(item => {
             let curr = (item.currency || '').trim().toUpperCase();
             if (!curr) curr = 'KRW';
-            const amt = (item.amount || 0) + (item.profit || 0);
+
+            let val = 0;
+            if (field === 'amount') val = item.amount || 0;
+            else if (field === 'profit') val = item.profit || 0;
+            else val = (item.amount || 0) + (item.profit || 0);
 
             if (curr === 'KRW' || curr === '원') {
-                totalKRW += amt;
+                totalKRW += val;
             } else {
                 const rate = rates[curr] || 0;
-                totalKRW += amt * rate;
+                totalKRW += val * rate;
             }
         });
 
@@ -283,173 +296,298 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                 </div>
             </div>
 
+            {/* Manager's Note */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-yellow-50 rounded-lg">
+                        <MessageSquareQuote className="w-4 h-4 text-yellow-600" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-800">담당자 비고 (선택)</h4>
+                </div>
+                <textarea
+                    value={data.quote_info.manager_note || ''}
+                    onChange={(e) => onChange({
+                        ...data,
+                        quote_info: { ...data.quote_info, manager_note: e.target.value }
+                    })}
+                    placeholder="고객에게 전달할 추가 코멘트나 유의사항을 입력하세요. (입력 시 견적서에 말풍선 형태로 노출됩니다)"
+                    className="w-full text-sm p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-hana-mint focus:border-hana-mint outline-none bg-slate-50 min-h-[80px] resize-y placeholder-slate-400"
+                />
+            </div>
+
             {/* Cost Details Table */}
             <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div className="border-b border-slate-100 pb-3 mb-4">
-                    <h4 className="text-xl font-bold text-slate-800 inline-block relative">
-                        💰 원가 상세 내역
-                        <span className="absolute bottom-1 left-0 w-full h-3 bg-green-200/40 -z-10 rounded-sm"></span>
-                    </h4>
-                </div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <h4 className="text-xl font-bold text-slate-800 inline-block relative">
+                                💰 원가 상세 내역
+                                <span className="absolute bottom-1 left-0 w-full h-3 bg-green-200/40 -z-10 rounded-sm"></span>
+                            </h4>
 
-                <div className="space-y-8">
-                    {costCategories.map(category => {
-                        const items = (data.cost.details || []).map((item, idx) => ({ ...item, originalIndex: idx })).filter(item => item.category === category);
-
-                        return (
-                            <div key={category} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
-                                <div className="bg-white px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                                    <h5 className="font-bold text-slate-700 flex items-center gap-2">
-                                        {category}
-                                    </h5>
-                                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                                        {calculateCategoryTotalDisplay(category)}
-                                    </span>
+                            <div
+                                className="flex items-center gap-2 cursor-pointer group ml-2"
+                                onClick={() => onChange({
+                                    ...data,
+                                    cost: { ...data.cost, show_details_in_quote: !data.cost.show_details_in_quote }
+                                })}
+                            >
+                                <div className={`w-9 h-5 rounded-full relative transition-colors duration-200 ease-in-out ${data.cost.show_details_in_quote ? 'bg-hana-mint' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
+                                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${data.cost.show_details_in_quote ? 'translate-x-4' : 'translate-x-0'}`} />
                                 </div>
-
-                                <div className="p-4 space-y-3">
-                                    {/* Header Row */}
-                                    <div className="flex gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                                        <div className="flex-[2]">상세 내용</div>
-                                        <div className="w-14 text-center">단위</div>
-                                        <div className="w-14 text-center">수량</div>
-                                        <div className="w-14 text-center">횟수</div>
-                                        <div className="w-20 text-center">통화</div>
-                                        <div className="w-24 text-right">단가</div>
-                                        <div className="w-24 text-right">원가(합계)</div>
-                                        <div className="w-24 text-right">수익</div>
-                                        <div className="w-8"></div>
-                                    </div>
-
-                                    {items.map((item) => (
-                                        <div key={item.originalIndex} className="flex gap-2 items-center group">
-                                            <input
-                                                type="text"
-                                                value={item.detail || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'detail', e.target.value)}
-                                                className={`flex-[2] ${baseDetailInputStyle}`}
-                                                placeholder="상세 내용"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={item.unit || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit', e.target.value)}
-                                                className={`w-14 text-center ${baseDetailInputStyle}`}
-                                                placeholder="단위"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={item.quantity || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'quantity', parseFloat(e.target.value) || 0)}
-                                                className={`w-14 text-center ${baseDetailInputStyle}`}
-                                            />
-                                            <input
-                                                type="number"
-                                                value={item.frequency || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'frequency', parseFloat(e.target.value) || 0)}
-                                                className={`w-14 text-center ${baseDetailInputStyle}`}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={item.currency || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'currency', e.target.value)}
-                                                className={`w-20 text-center uppercase ${baseDetailInputStyle} font-bold`}
-                                                placeholder="KRW"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={item.unit_price || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit_price', parseFloat(e.target.value) || 0)}
-                                                className={`w-24 text-right ${baseDetailInputStyle}`}
-                                                placeholder="단가"
-                                            />
-                                            <div className={`w-24 text-right px-2 py-2 text-xs font-bold ${item.amount === 0 ? 'text-slate-300' : 'text-slate-700'}`}>
-                                                {item.amount?.toLocaleString()}
-                                            </div>
-                                            <input
-                                                type="number"
-                                                value={item.profit || ''}
-                                                onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseFloat(e.target.value) || 0)}
-                                                className={`w-24 text-right ${baseDetailInputStyle} text-blue-600`}
-                                                placeholder="수익"
-                                            />
-                                            <button
-                                                onClick={() => handleDeleteCostDetail(item.originalIndex)}
-                                                className="w-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-
-                                    <button
-                                        onClick={() => handleAddCostDetail(category)}
-                                        className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-400 hover:text-hana-purple hover:border-hana-purple hover:bg-hana-light/10 transition-all flex items-center justify-center gap-1 mt-2"
-                                    >
-                                        <Plus className="w-3 h-3" /> 항목 추가
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Exchange Rate Calculator Panel */}
-            {uniqueCurrencies.length > 0 && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 mb-6">
-                    <div className="flex items-center gap-2 text-xs font-bold text-hana-purple uppercase tracking-wide">
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        환율 설정 (자동 감지됨)
-                    </div>
-                    <div className="flex flex-wrap gap-4">
-                        {uniqueCurrencies.map(curr => (
-                            <div key={curr} className="flex items-center bg-white px-3 py-2 rounded-lg border border-slate-200 gap-3 shadow-sm">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-slate-700">
-                                        {curr} 1
-                                    </span>
-                                    <span className="text-slate-400 font-bold">=</span>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        placeholder="금액"
-                                        value={(data.cost.exchangeRates || {})[curr] || ''}
-                                        onChange={(e) => handleExchangeRateChange(curr, parseFloat(e.target.value) || 0)}
-                                        className="w-32 pl-3 pr-10 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-hana-purple/20 focus:border-hana-purple outline-none transition-all shadow-inner"
-                                    />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold pointer-events-none select-none">KRW</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Total Panel */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Calculator className="w-4 h-4 text-hana-purple" />
-                    <span>총 원가 합계</span>
-                </div>
-
-                <div className="flex flex-col items-end">
-                    <div className="text-sm font-semibold text-slate-700 mb-1">
-                        {calculateTotalCostDisplay()}
-                    </div>
-
-                    {uniqueCurrencies.length > 0 && (
-                        <div className="flex flex-col items-end gap-1">
-                            <div className="text-sm font-bold text-emerald-600">
-                                ≈ {new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted())} 원 (전체 환산)
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                                * 환율 적용 시 예상 금액
+                                <span className={`text-xs font-bold transition-colors ${data.cost.show_details_in_quote ? 'text-hana-mint' : 'text-slate-400 group-hover:text-slate-500'}`}>
+                                    고객 견적서 노출
+                                </span>
                             </div>
                         </div>
-                    )}
+
+                        <button
+                            onClick={() => setShowDetails(!showDetails)}
+                            className="text-xs flex items-center gap-1 text-slate-500 hover:text-hana-purple transition-colors font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-hana-purple"
+                        >
+                            {showDetails ? (
+                                <>
+                                    <ChevronUp className="w-3.5 h-3.5" /> 접기
+                                </>
+                            ) : (
+                                <>
+                                    <ChevronDown className="w-3.5 h-3.5" /> 펼치기
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
+
+                {/* Exchange Rate Calculator Panel */}
+                {uniqueCurrencies.length > 0 && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 mb-6">
+                        <div className="flex items-center gap-2 text-xs font-bold text-hana-purple uppercase tracking-wide">
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            환율 설정 (자동 감지됨)
+                        </div>
+                        <div className="flex flex-wrap gap-4">
+                            {uniqueCurrencies.map(curr => (
+                                <div key={curr} className="flex items-center bg-white px-3 py-2 rounded-lg border border-slate-200 gap-3 shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-slate-700">
+                                            {curr} 1
+                                        </span>
+                                        <span className="text-slate-400 font-bold">=</span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            placeholder="금액"
+                                            value={(data.cost.exchangeRates || {})[curr] || ''}
+                                            onChange={(e) => handleExchangeRateChange(curr, parseFloat(e.target.value) || 0)}
+                                            className="w-32 pl-3 pr-10 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-hana-purple/20 focus:border-hana-purple outline-none transition-all shadow-inner"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold pointer-events-none select-none">KRW</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Total Panel */}
+                <div className="bg-purple-50 p-5 rounded-xl border border-purple-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-start justify-between gap-6 mb-6">
+                    <div className="flex flex-col gap-1">
+                        <div className="text-base font-bold text-slate-700 flex items-center gap-2">
+                            <Calculator className="w-5 h-5 text-hana-purple" />
+                            <span>총 원가 합계</span>
+                        </div>
+                        <p className="text-xs text-slate-400 pl-7">
+                            * 입력된 모든 항목의 원가와 수익을 합산한 결과입니다.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-4 w-full sm:w-auto">
+                        {/* Main Total Display */}
+                        <div className="text-right">
+                            <div className="text-3xl font-bold text-emerald-600 tracking-tight">
+                                {uniqueCurrencies.length >
+                                    0 ? `≈ ${new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted())} 원`
+                                    : calculateTotalCostDisplay()
+                                }
+                            </div>
+
+                            {/* Per Person Display */}
+                            {(() => {
+                                const adultCount = data.cost.internal_pax_adult ?? data.trip_summary.pax_adult ?? 0;
+                                const childCount = data.cost.internal_pax_child ?? data.trip_summary.pax_child ?? 0;
+                                const totalPax = adultCount + childCount;
+
+                                if (totalPax > 0) {
+                                    const totalAmount = calculateTotalKRWConverted();
+
+                                    return (
+                                        <div className="text-sm text-slate-500 font-medium mt-1">
+                                            <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600 mr-1.5 text-xs">1인 예상</span>
+                                            <span className="font-bold text-slate-700">
+                                                {new Intl.NumberFormat('ko-KR').format(Math.round(totalAmount / totalPax))}
+                                            </span> 원
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+
+                        {/* Breakdown Table */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm w-full sm:min-w-[340px]">
+                            <table className="w-full text-right text-xs">
+                                <thead>
+                                    <tr className="text-slate-400 border-b border-slate-100">
+                                        <th className="pb-2 text-left font-medium">구분</th>
+                                        <th className="pb-2 font-medium">금액 (현지)</th>
+                                        {uniqueCurrencies.length > 0 && <th className="pb-2 font-medium pl-4">원화 환산 (예상)</th>}
+                                    </tr>
+                                </thead>
+                                <tbody className="text-slate-600">
+                                    <tr>
+                                        <td className="py-2 text-left font-bold text-slate-500">순수 원가</td>
+                                        <td className="py-2 font-medium">{calculateTotalsByCurrency(data.cost.details || [], 'amount')}</td>
+                                        {uniqueCurrencies.length > 0 && (
+                                            <td className="py-2 pl-4 text-slate-400">
+                                                {new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted('amount'))}
+                                            </td>
+                                        )}
+                                    </tr>
+                                    <tr>
+                                        <td className="py-2 text-left font-bold text-blue-500">수익</td>
+                                        <td className="py-2 font-bold text-blue-500">{calculateTotalsByCurrency(data.cost.details || [], 'profit')}</td>
+                                        {uniqueCurrencies.length > 0 && (
+                                            <td className="py-2 pl-4 text-blue-400">
+                                                {new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted('profit'))}
+                                            </td>
+                                        )}
+                                    </tr>
+                                    <tr className="border-t border-slate-100">
+                                        <td className="pt-2 text-left font-bold text-slate-800">합계</td>
+                                        <td className="pt-2 font-bold text-slate-800">{calculateTotalsByCurrency(data.cost.details || [], 'total')}</td>
+                                        {uniqueCurrencies.length > 0 && (
+                                            <td className="pt-2 pl-4 font-bold text-emerald-600">
+                                                {new Intl.NumberFormat('ko-KR').format(calculateTotalKRWConverted('total'))}
+                                            </td>
+                                        )}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {showDetails && (
+                    <div className="space-y-8 animate-in slide-in-from-top-2 duration-300">
+                        {costCategories.map(category => {
+                            const items = (data.cost.details || []).map((item, idx) => ({ ...item, originalIndex: idx })).filter(item => item.category === category);
+
+                            return (
+                                <div key={category} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                                    <div className="bg-white px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                                        <h5 className="font-bold text-slate-700 flex items-center gap-2">
+                                            {category}
+                                        </h5>
+                                        <div className="flex items-center gap-3">
+                                            <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-500">
+                                                <span>원가 <span className="font-bold text-slate-700">{calculateCategoryTotalDisplay(category, 'amount')}</span></span>
+                                                <span className="text-slate-300">|</span>
+                                                <span>수익 <span className="font-bold text-blue-600">{calculateCategoryTotalDisplay(category, 'profit')}</span></span>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                                                {calculateCategoryTotalDisplay(category)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 space-y-3">
+                                        {/* Header Row */}
+                                        <div className="flex gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                            <div className="flex-[2] pl-2">상세 내용</div>
+                                            <div className="w-14 text-center">단위</div>
+                                            <div className="w-14 text-center">수량</div>
+                                            <div className="w-14 text-center">횟수</div>
+                                            <div className="w-20 text-center">통화</div>
+                                            <div className="w-24 text-center">단가</div>
+                                            <div className="w-24 text-center">원가(합계)</div>
+                                            <div className="w-24 text-center">수익</div>
+                                            <div className="w-8"></div>
+                                        </div>
+
+                                        {items.map((item) => (
+                                            <div key={item.originalIndex} className="flex gap-2 items-center group">
+                                                <input
+                                                    type="text"
+                                                    value={item.detail || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'detail', e.target.value)}
+                                                    className={`flex-[2] ${baseDetailInputStyle}`}
+                                                    placeholder="상세 내용"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={item.unit || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit', e.target.value)}
+                                                    className={`w-14 text-center ${baseDetailInputStyle}`}
+                                                    placeholder="단위"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={item.quantity || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'quantity', parseFloat(e.target.value) || 0)}
+                                                    className={`w-14 text-center ${baseDetailInputStyle}`}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={item.frequency || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'frequency', parseFloat(e.target.value) || 0)}
+                                                    className={`w-14 text-center ${baseDetailInputStyle}`}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={item.currency || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'currency', e.target.value)}
+                                                    className={`w-20 text-center uppercase ${baseDetailInputStyle} font-bold`}
+                                                    placeholder="KRW"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={item.unit_price || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit_price', parseFloat(e.target.value) || 0)}
+                                                    className={`w-24 text-right ${baseDetailInputStyle}`}
+                                                    placeholder="단가"
+                                                />
+                                                <div className={`w-24 text-right px-2 py-2 text-xs font-bold ${item.amount === 0 ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                    {item.amount?.toLocaleString()}
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    value={item.profit || ''}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseFloat(e.target.value) || 0)}
+                                                    className={`w-24 text-right ${baseDetailInputStyle} text-blue-600`}
+                                                    placeholder="수익"
+                                                />
+                                                <button
+                                                    onClick={() => handleDeleteCostDetail(item.originalIndex)}
+                                                    className="w-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            onClick={() => handleAddCostDetail(category)}
+                                            className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-400 hover:text-hana-purple hover:border-hana-purple hover:bg-hana-light/10 transition-all flex items-center justify-center gap-1 mt-2"
+                                        >
+                                            <Plus className="w-3 h-3" /> 항목 추가
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -46,6 +46,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1d5HhywoHnemlEmBhk82QnK
   - 내부 정산용 원가 계산
 - **수익 관리 (Profit Margin)**
   - 각 항목별 원가(Cost)와 수익(Profit) 분리 입력
+  - **원가/수익 분석**: 총 원가와 수익을 분리하여 시각화 (Net Cost | Profit)
+  - **1인당 예상 원가**: 총 인원수 기반 1인당 예상 비용 자동 계산 및 표시
   - 총 합계(Total Sum) 자동 계산 (원가 + 수익)
 - **여행 국가 및 도시 관리**
   - 태그(Tag) 형태의 직관적인 국가/도시 입력 UI
