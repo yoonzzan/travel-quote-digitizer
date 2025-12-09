@@ -76,7 +76,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1d5HhywoHnemlEmBhk82QnK
 ## 🛠 기술 스택
 
 - **프론트엔드**
-  - React 18.2.0
+  - React 19.2.1
   - TypeScript 5.2.2
   - Vite 5.2.0 (빌드 도구)
 - **UI/스타일링**
