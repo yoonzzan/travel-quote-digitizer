@@ -262,7 +262,9 @@ const normalizeData = (data: any): TravelQuoteData => {
             unit: d?.unit || '',
             quantity: typeof d?.quantity === 'number' ? d.quantity : 1,
             frequency: typeof d?.frequency === 'number' ? d.frequency : 1,
-            unit_price: typeof d?.unit_price === 'number' ? d.unit_price : 0,
+            unit_price: (typeof d?.unit_price === 'number' && d.unit_price > 0)
+              ? d.unit_price
+              : (amountVal > 0 && (typeof d?.quantity !== 'number' || d.quantity === 1)) ? amountVal : 0,
             note: d?.note || ''
           };
         })
@@ -313,33 +315,43 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
     Task: Extract structured JSON data from the provided travel document (Excel/Image/Text).
     
     Data Interpretation Rules:
-    - **Currency Awareness**:
-      - Extract currency and amounts separately.
-      - If a cell says "RM 320", currency="RM", amount=320.
-      - If a column header says "Amount (USD)" or "Price (SGD)", apply that currency to all rows in that column.
-      - **Context Inference**: If a cell only has a number (e.g. "300"), look at the "Currency" or "Unit" column in the same row, or the table header. If the entire table seems to be in "RM" or "USD", use that.
-      - Do NOT default currency to "KRW" if it is missing. Leave it empty ONLY if absolutely no clue is found.
-    - **Number Extraction**:
-      - Extract EXACT numbers. Do NOT multiply by 1000 automatically (e.g. if cell says 2400, extract 2400, not 2400000).
-      - **OCR Correction**: Pay close attention to red or bold text. Distinguish carefully between '6' and '8', '1' and '7'. If the text is "677,000", do not read it as "777,000".
+    - **Currency**: Extract currency and amounts separately. If header says "USD", apply to all. Use context (e.g. "RM 320") to infer currency. Do NOT default to KRW.
+    - **Currency Priority**: If a table contains both an **Original Currency** column (e.g. USD, EUR, JPY) and a **Converted KRW** column (e.g. 원화환산, KRW), **ALWAYS extract the Original Currency amount**. Ignore the KRW column. We will handle conversion in the app.
+    - **Numbers**: Extract EXACT numbers. No auto-multiplication.
+    - **OCR Correction**: Distinguish '6' vs '8', '1' vs '7' (especially red/bold text).
+    - **Unit Price**:
+      - Standard: Look for "Rate", "Price", "단가", "@".
+      - Matrix: If cell is Total Amount, set 'amount' = cell. If 'quantity' is 1, 'unit_price' = 'amount'.
+      - Inference: 'unit_price' = 'amount' / 'quantity'.
     
     Extraction Rules:
     1. **Quote Info**: Code, Agency.
     2. **Trip Summary**: Title, Pax, Period, Countries, Cities.
-       - **Countries/Cities**: Extract all unique countries and cities mentioned in the itinerary or title.
     3. **Cost**: 
-       - **Total Price (Customer Facing)**: This is the final price quoted to the customer. DO NOT sum up the internal details. Find the specific field that says "Total Price" or "Per Person Price".
-       - **Inclusions/Exclusions**:
-         - **Split items**: If multiple items are listed in one line (comma/slash separated), split them into separate array elements.
-         - **Concise Nouns**: Remove conversational endings (e.g. "불포함입니다", "별도", "포함", "제외"). Keep only the core item name.
-         - Example: "개인경비, 매너팁 불포함" -> ["개인경비", "매너팁"]
-         - **Internal Cost Details**:
-         - Extract EVERY cost item found in the cost breakdown table.
-         - **Include items with 0 cost** (e.g. free services, included items).
-         - **Merged Cells**: If a Category column is empty for a row, inherit the category from the row above (e.g. if "Hotel" is listed once for multiple rooms).
+       - **Total Price**: Customer-facing final price.
+       - **Inclusions/Exclusions**: Split items. Remove conversational endings (e.g. "불포함").
+       - **Internal Cost Details**:
+         - Extract **EVERY** cost item. Include items with 0 cost.
+         - **Merged Amount Cells**: If price appears only in the first row of a group, assign it to the first item.
+         - **Rows with Empty Amount**: **MUST** extract rows with valid Detail but empty/0 Amount as separate items with **Amount = 0**.
          - Categorize into: "호텔", "차량", "가이드", "관광지", "식사", "기타".
-         - Use "기타" if the category is ambiguous (but check if it relates to Driver/Tip -> Guide).
     4. **Itinerary**: Day-by-day schedule.
+
+    **Few-Shot Example for Merged/Empty Price Cells**:
+    [Input Table]
+    | Date | Detail          | Price  |
+    | 01   | Airport -> Hotel| 300.00 |
+    | 02   | City Tour       | 500.00 |
+    | 03   | Museum Visit    |        | (Empty cell)
+    | 04   | Dinner          |        | (Empty cell)
+
+    [Expected JSON Output]
+    [
+      { "category": "Vehicle", "detail": "Airport -> Hotel", "amount": 300 },
+      { "category": "Vehicle", "detail": "City Tour", "amount": 500 },
+      { "category": "Vehicle", "detail": "Museum Visit", "amount": 0 },
+      { "category": "Vehicle", "detail": "Dinner", "amount": 0 }
+    ]
     
     Output Format:
     - JSON Only.

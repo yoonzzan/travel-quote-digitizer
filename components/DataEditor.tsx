@@ -822,7 +822,7 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
                         value={item.currency || ''}
                         onChange={(e) => handleCostDetailChange(item.originalIndex, 'currency', e.target.value)}
                         className={`${baseDetailInputStyle} w-16 text-center px-1 py-2.5 text-xs uppercase`}
-                        placeholder="KRW"
+                        placeholder="통화"
                       />
                       <input
                         type="number"
