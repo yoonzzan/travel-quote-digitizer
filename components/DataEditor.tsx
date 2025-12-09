@@ -473,7 +473,7 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1.5">여행사</label>
+            <label className="block text-xs font-bold text-slate-500 mb-1.5">협력사</label>
             <input
               type="text"
               value={data.quote_info.agency || ''}
