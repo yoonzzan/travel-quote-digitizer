@@ -160,7 +160,11 @@ const quoteSchema: Schema = {
               category: { type: Type.STRING, description: "Cost Category (호텔, 차량, 가이드, 관광지, 식사, 기타)" },
               detail: { type: Type.STRING, description: "Detailed item name (e.g. 힐튼호텔 2박, 45인승 버스)" },
               currency: { type: Type.STRING, description: "Currency string. Extract EXACTLY as written (e.g. 'RM', 'SGD$', '$', 'USD', '원'). Do NOT default to KRW if other currency is present." },
-              amount: { type: Type.INTEGER, description: "Cost amount. Extract EXACT number from cell. Do not auto-multiply." },
+              amount: { type: Type.INTEGER, description: "Total Cost amount (Calculated as Qty * Freq * UnitPrice). Extract EXACT number from cell." },
+              unit: { type: Type.STRING, description: "Unit (e.g. 박, 명, 대, 개)" },
+              quantity: { type: Type.NUMBER, description: "Quantity (Q'ty)" },
+              frequency: { type: Type.NUMBER, description: "Frequency (C.T / 횟수)" },
+              unit_price: { type: Type.NUMBER, description: "Unit Price (단가)" },
               note: { type: Type.STRING }
             },
             required: ["category", "detail", "amount"]
@@ -242,12 +246,12 @@ const normalizeData = (data: any): TravelQuoteData => {
           if (!validCategories.includes(cat) || cat === '기타') {
             const combinedText = (cat + ' ' + detailText).toLowerCase();
 
-            if (combinedText.includes('숙소') || combinedText.includes('리조트') || combinedText.includes('호텔')) cat = '호텔';
+            if (combinedText.includes('숙소') || combinedText.includes('리조트') || combinedText.includes('호텔') || combinedText.includes('배드') || combinedText.includes('bed') || combinedText.includes('room') || combinedText.includes('박')) cat = '호텔';
             else if (combinedText.includes('버스') || combinedText.includes('교통') || combinedText.includes('차량') || combinedText.includes('픽업') || combinedText.includes('샌딩')) cat = '차량';
             else if (combinedText.includes('입장') || combinedText.includes('투어') || combinedText.includes('티켓') || combinedText.includes('관람')) cat = '관광지';
             else if (combinedText.includes('조식') || combinedText.includes('중식') || combinedText.includes('석식') || combinedText.includes('식사') || combinedText.includes('특식') || combinedText.includes('간식')) cat = '식사';
             // Guide/Driver logic
-            else if (combinedText.includes('가이드') || combinedText.includes('기사') || combinedText.includes('팁') || combinedText.includes('핸들링') || combinedText.includes('인솔자')) cat = '가이드';
+            else if (combinedText.includes('가이드') || combinedText.includes('기사') || combinedText.includes('팁') || combinedText.includes('인솔자')) cat = '가이드';
             else cat = '기타';
           }
           return {
@@ -255,6 +259,10 @@ const normalizeData = (data: any): TravelQuoteData => {
             detail: detailText, // Empty string if no info
             currency: currencyVal,
             amount: amountVal,
+            unit: d?.unit || '',
+            quantity: typeof d?.quantity === 'number' ? d.quantity : 1,
+            frequency: typeof d?.frequency === 'number' ? d.frequency : 1,
+            unit_price: typeof d?.unit_price === 'number' ? d.unit_price : 0,
             note: d?.note || ''
           };
         })
@@ -313,6 +321,7 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
       - Do NOT default currency to "KRW" if it is missing. Leave it empty ONLY if absolutely no clue is found.
     - **Number Extraction**:
       - Extract EXACT numbers. Do NOT multiply by 1000 automatically (e.g. if cell says 2400, extract 2400, not 2400000).
+      - **OCR Correction**: Pay close attention to red or bold text. Distinguish carefully between '6' and '8', '1' and '7'. If the text is "677,000", do not read it as "777,000".
     
     Extraction Rules:
     1. **Quote Info**: Code, Agency.
@@ -324,9 +333,10 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
          - **Split items**: If multiple items are listed in one line (comma/slash separated), split them into separate array elements.
          - **Concise Nouns**: Remove conversational endings (e.g. "불포함입니다", "별도", "포함", "제외"). Keep only the core item name.
          - Example: "개인경비, 매너팁 불포함" -> ["개인경비", "매너팁"]
-       - **Internal Cost Details**:
+         - **Internal Cost Details**:
          - Extract EVERY cost item found in the cost breakdown table.
          - **Include items with 0 cost** (e.g. free services, included items).
+         - **Merged Cells**: If a Category column is empty for a row, inherit the category from the row above (e.g. if "Hotel" is listed once for multiple rooms).
          - Categorize into: "호텔", "차량", "가이드", "관광지", "식사", "기타".
          - Use "기타" if the category is ambiguous (but check if it relates to Driver/Tip -> Guide).
     4. **Itinerary**: Day-by-day schedule.

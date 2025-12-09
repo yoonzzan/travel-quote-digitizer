@@ -93,13 +93,23 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
     const currentDetails = data.cost.details || [];
     onChange({
       ...data,
-      cost: { ...data.cost, details: [...currentDetails, { category, detail: '', currency: 'KRW', amount: 0 }] }
+      cost: { ...data.cost, details: [...currentDetails, { category, detail: '', currency: 'KRW', amount: 0, unit: '', quantity: 1, frequency: 1, unit_price: 0 }] }
     });
   };
 
   const handleCostDetailChange = (index: number, field: keyof CostDetail, value: string | number) => {
     const currentDetails = [...(data.cost.details || [])];
-    currentDetails[index] = { ...currentDetails[index], [field]: value };
+    const updatedItem = { ...currentDetails[index], [field]: value };
+
+    // Auto-calculate amount if unit components change
+    if (field === 'quantity' || field === 'frequency' || field === 'unit_price') {
+      const q = updatedItem.quantity ?? 1;
+      const f = updatedItem.frequency ?? 1;
+      const p = updatedItem.unit_price ?? 0;
+      updatedItem.amount = q * f * p;
+    }
+
+    currentDetails[index] = updatedItem;
     onChange({
       ...data,
       cost: { ...data.cost, details: currentDetails }
@@ -760,32 +770,73 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
                   {calculateCategoryTotalDisplay(category)}
                 </span>
               </div>
-              <div className="p-4 space-y-3 flex-1">
+              <div className="p-4 space-y-3 flex-1 overflow-x-auto">
+                {/* Header Row for columns */}
+                <div className="flex gap-2 min-w-[800px] mb-2 px-1">
+                  <span className="flex-1 text-[10px] text-slate-400 font-bold pl-1">상세 내용</span>
+                  <span className="w-14 text-center text-[10px] text-slate-400 font-bold">단위</span>
+                  <span className="w-14 text-center text-[10px] text-slate-400 font-bold">수량</span>
+                  <span className="w-14 text-center text-[10px] text-slate-400 font-bold">횟수</span>
+                  <span className="w-16 text-center text-[10px] text-slate-400 font-bold">통화</span>
+                  <span className="w-24 text-right text-[10px] text-slate-400 font-bold">단가</span>
+                  <span className="w-24 text-right text-[10px] text-slate-400 font-bold">원가(합계)</span>
+                  <span className="w-24 text-right text-[10px] text-slate-400 font-bold">수익</span>
+                  <span className="w-8"></span>
+                </div>
+
                 {(data.cost.details || [])
                   .map((d, i) => ({ ...d, originalIndex: i }))
                   .filter(d => d.category === category)
                   .map((item, localIdx) => (
-                    <div key={localIdx} className="flex gap-2 items-center">
+                    <div key={localIdx} className="flex gap-2 items-center min-w-[800px]">
                       <input
                         type="text"
-                        placeholder="상세 내용 입력"
+                        placeholder="상세 내용"
                         value={item.detail || ''}
                         onChange={(e) => handleCostDetailChange(item.originalIndex, 'detail', e.target.value)}
-                        className={`${baseDetailInputStyle} flex-1 min-w-0 py-2.5 text-sm`}
+                        className={`${baseDetailInputStyle} flex-1 min-w-[150px] py-2.5 text-sm`}
+                      />
+                      <input
+                        type="text"
+                        placeholder="단위"
+                        value={item.unit || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit', e.target.value)}
+                        className={`${baseDetailInputStyle} w-14 text-center px-1 py-2.5 text-xs`}
+                      />
+                      <input
+                        type="number"
+                        placeholder="1"
+                        value={item.quantity || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'quantity', parseFloat(e.target.value) || 0)}
+                        className={`${baseDetailInputStyle} w-14 text-center px-1 py-2.5 text-xs`}
+                      />
+                      <input
+                        type="number"
+                        placeholder="1"
+                        value={item.frequency || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'frequency', parseFloat(e.target.value) || 0)}
+                        className={`${baseDetailInputStyle} w-14 text-center px-1 py-2.5 text-xs`}
                       />
                       <input
                         type="text"
                         value={item.currency || ''}
                         onChange={(e) => handleCostDetailChange(item.originalIndex, 'currency', e.target.value)}
-                        className={`${baseDetailInputStyle} w-20 text-center px-1 py-2.5 text-sm uppercase`}
-                        placeholder="통화"
+                        className={`${baseDetailInputStyle} w-16 text-center px-1 py-2.5 text-xs uppercase`}
+                        placeholder="KRW"
+                      />
+                      <input
+                        type="number"
+                        placeholder="단가"
+                        value={item.unit_price || ''}
+                        onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit_price', parseFloat(e.target.value) || 0)}
+                        className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-xs`}
                       />
                       <input
                         type="number"
                         placeholder="원가"
                         value={item.amount || ''}
                         onChange={(e) => handleCostDetailChange(item.originalIndex, 'amount', parseInt(e.target.value) || 0)}
-                        className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium`}
+                        className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-bold bg-slate-50`}
                       />
                       <input
                         type="number"
@@ -794,12 +845,9 @@ const DataEditor: React.FC<DataEditorProps> = ({ data, onChange }) => {
                         onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseInt(e.target.value) || 0)}
                         className={`${baseDetailInputStyle} w-24 text-right py-2.5 text-sm font-medium text-blue-600 bg-blue-50/30 focus:bg-white`}
                       />
-                      <div className="w-24 text-right text-xs font-bold text-slate-500">
-                        = {new Intl.NumberFormat('ko-KR').format((item.amount || 0) + (item.profit || 0))}
-                      </div>
                       <button
                         onClick={() => handleDeleteCostDetail(item.originalIndex)}
-                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                        className="w-8 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0 flex items-center justify-center"
                         title="항목 삭제"
                       >
                         <Trash2 className="w-4 h-4" />

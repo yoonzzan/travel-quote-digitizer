@@ -19,9 +19,15 @@ export interface CostDetail {
   category: string; // 구분 (e.g. 호텔, 차량, 식사)
   detail: string;   // 상세항목 (e.g. 힐튼호텔 2박, 45인승 버스)
   currency: string; // 통화 (e.g. KRW, USD)
-  amount: number;   // 원가 (Cost)
+  amount: number;   // 원가 (Cost) - 자동 계산되거나 수동 입력
   profit?: number;  // 수익 (Profit) - 사용자가 추가 입력
   note?: string;
+
+  // Detailed breakdown fields
+  unit?: string;       // 단위 (e.g. 박, 명, 대)
+  quantity?: number;   // 수량 (Q'ty)
+  frequency?: number;  // 횟수 (C.T)
+  unit_price?: number; // 단가 (Price)
 }
 
 export interface Cost {
