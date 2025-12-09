@@ -159,7 +159,7 @@ const quoteSchema: Schema = {
             properties: {
               category: { type: Type.STRING, description: "Cost Category (호텔, 차량, 가이드, 관광지, 식사, 기타)" },
               detail: { type: Type.STRING, description: "Detailed item name (e.g. 힐튼호텔 2박, 45인승 버스)" },
-              currency: { type: Type.STRING, description: "Currency string. Extract EXACTLY as written (e.g. 'RM', 'SGD$', '$', 'USD', '원'). Do NOT default to KRW if other currency is present." },
+              currency: { type: Type.STRING, description: "Currency string. Check HEADERS first (e.g. 'Price (RM)'). Extract EXACTLY as written. Do NOT default to KRW. Return empty string if unknown." },
               amount: { type: Type.INTEGER, description: "Total Cost amount (Calculated as Qty * Freq * UnitPrice). Extract EXACT number from cell." },
               unit: { type: Type.STRING, description: "Unit (e.g. 박, 명, 대, 개)" },
               quantity: { type: Type.NUMBER, description: "Quantity (Q'ty)" },
@@ -233,7 +233,8 @@ const normalizeData = (data: any): TravelQuoteData => {
           let cat = d?.category || '기타';
           let detailText = (d?.detail || '').trim();
           const amountVal = typeof d?.amount === 'number' ? d.amount : 0;
-          const currencyVal = (d?.currency || '').trim(); // Default to empty string
+          let currencyVal = (d?.currency || '').trim();
+          if (currencyVal.toUpperCase() === 'NULL') currencyVal = ''; // Fix "NULL" string issue
 
           // --- FILTER LOGIC: Remove empty items ---
           if (!detailText && amountVal === 0) return null;
@@ -315,45 +316,33 @@ export const extractDataFromDocument = async (file: File, apiKey: string): Promi
     Task: Extract structured JSON data from the provided travel document (Excel/Image/Text).
     
     Data Interpretation Rules:
-    - **Currency**: Extract currency and amounts separately. If header says "USD", apply to all. Use context (e.g. "RM 320") to infer currency. Do NOT default to KRW.
-    - **Currency Priority**: If a table contains both an **Original Currency** column (e.g. USD, EUR, JPY) and a **Converted KRW** column (e.g. 원화환산, KRW), **ALWAYS extract the Original Currency amount**. Ignore the KRW column. We will handle conversion in the app.
+    - **Currency Extraction (CRITICAL)**: 
+      - Look for currency codes (e.g. **RM**, **USD**, **SGD**, **EUR**, **￥**, **$**) in **Column Headers** (e.g. "단가(RM)", "Price (USD)").
+      - If a header defines the currency, **APPLY IT TO ALL ROWS** in that column.
+      - If a cell contains "RM 50", extract currency="RM", amount=50.
+      - **NEVER return "NULL" as a string.** If currency is unknown, return empty string "".
+      - Do NOT default to KRW unless explicitly stated.
+    - **Total Price (Per Person)**:
+      - Look for keywords like "**지상비**", "**1인 상품가**", "**판매가**", "**Total**".
+      - If you see "지상비 : 677,000원", extract **677000**.
+      - **OCR Caution**: Carefully distinguish '6' vs '8', '1' vs '7'. (e.g. 677,000 vs 777,000).
     - **Numbers**: Extract EXACT numbers. No auto-multiplication.
-    - **OCR Correction**: Distinguish '6' vs '8', '1' vs '7' (especially red/bold text).
-    - **Unit Price**:
-      - Standard: Look for "Rate", "Price", "단가", "@".
-      - Matrix: If cell is Total Amount, set 'amount' = cell. If 'quantity' is 1, 'unit_price' = 'amount'.
-      - Inference: 'unit_price' = 'amount' / 'quantity'.
     
     Extraction Rules:
     1. **Quote Info**: Code, Agency.
     2. **Trip Summary**: Title, Pax, Period, Countries, Cities.
     3. **Cost**: 
-       - **Total Price**: Customer-facing final price.
-       - **Inclusions/Exclusions**: Split items. Remove conversational endings (e.g. "불포함").
+       - **Total Price**: Customer-facing final price (1 Person).
+       - **Inclusions/Exclusions**: Split items. Remove conversational endings.
        - **Internal Cost Details**:
-         - Extract **EVERY** cost item. Include items with 0 cost.
+         - Extract **EVERY** cost item.
+         - **Currency**: Check **HEADERS** first. If the column header is "RM", then every item in that column has currency "RM".
          - **Merged Amount Cells**: If price appears only in the first row of a group, assign it to the first item.
-         - **Rows with Empty Amount**: **MUST** extract rows with valid Detail but empty/0 Amount as separate items with **Amount = 0**.
-         - **Empty Row Exclusion**: If a row has **NO Description/Detail** (or just generic placeholders like "기타") AND Amount is 0 (or empty), **DO NOT extract it**. Only extract if there is a specific Description.
+         - **Rows with Empty Amount**: Extract rows with valid Detail but empty/0 Amount as separate items with **Amount = 0**.
+         - **Empty Row Exclusion**: If a row has **NO Description/Detail** AND Amount is 0, **DO NOT extract it**.
          - Categorize into: "호텔", "차량", "가이드", "관광지", "식사", "기타".
     4. **Itinerary**: Day-by-day schedule.
 
-    **Few-Shot Example for Merged/Empty Price Cells**:
-    [Input Table]
-    | Date | Detail          | Price  |
-    | 01   | Airport -> Hotel| 300.00 |
-    | 02   | City Tour       | 500.00 |
-    | 03   | Museum Visit    |        | (Empty cell)
-    | 04   | Dinner          |        | (Empty cell)
-
-    [Expected JSON Output]
-    [
-      { "category": "Vehicle", "detail": "Airport -> Hotel", "amount": 300 },
-      { "category": "Vehicle", "detail": "City Tour", "amount": 500 },
-      { "category": "Vehicle", "detail": "Museum Visit", "amount": 0 },
-      { "category": "Vehicle", "detail": "Dinner", "amount": 0 }
-    ]
-    
     Output Format:
     - JSON Only.
   `;
