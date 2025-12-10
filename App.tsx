@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ParsingStatus, TravelQuoteData } from './types';
-import { extractDataFromDocument } from './services/geminiService';
+import { extractDataFromDocument } from './services/aiService';
 import { generateQuoteHtml } from './utils/htmlGenerator';
 import FileUploader from './components/FileUploader';
 import JsonViewer from './components/JsonViewer';
@@ -118,12 +118,13 @@ const App: React.FC = () => {
               <h2 className="text-xl font-bold">API 키 설정</h2>
             </div>
             <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-              서비스를 사용하려면 Google Gemini API 키가 필요합니다.<br />
-              발급받은 키는 브라우저에만 안전하게 저장됩니다.
+              서비스를 사용하려면 AI API 키가 필요합니다.<br />
+              <strong>Google Gemini</strong> 또는 <strong>OpenAI (ChatGPT)</strong> 키를 입력하세요.<br />
+              <span className="text-xs text-slate-400 mt-1 block">발급받은 키는 브라우저에만 안전하게 저장됩니다.</span>
             </p>
             <input
               type="password"
-              placeholder="AIzaSy..."
+              placeholder="AIzaSy... (Google) or sk-... (OpenAI)"
               className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-hana-mint outline-none font-mono text-sm bg-white text-slate-900 placeholder-slate-400"
               value={tempApiKey}
               onChange={(e) => setTempApiKey(e.target.value)}
@@ -138,7 +139,7 @@ const App: React.FC = () => {
                 rel="noreferrer"
                 className="flex-1 py-2.5 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 text-center transition-colors"
               >
-                키 발급받기
+                Google 키 발급
               </a>
               <button
                 onClick={() => saveApiKey(tempApiKey)}
