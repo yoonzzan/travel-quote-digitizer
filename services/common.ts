@@ -47,7 +47,8 @@ export const parseSpreadsheet = async (file: File): Promise<string> => {
 
                 workbook.SheetNames.forEach((sheetName: string) => {
                     const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    // Use raw: false to get formatted strings (e.g. "RM 500" instead of 500)
+                    const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
 
                     if (jsonData && jsonData.length > 0) {
                         fullText += `\n[SHEET: ${sheetName}]\n`;
@@ -190,11 +191,12 @@ export const SYSTEM_INSTRUCTION = `
     
     Data Interpretation Rules:
     - **Currency Extraction (CRITICAL)**: 
-      - Look for currency codes (e.g. **RM**, **USD**, **SGD**, **EUR**, **￥**, **$**) in **Column Headers** (e.g. "단가(RM)", "Price (USD)").
-      - If a header defines the currency, **APPLY IT TO ALL ROWS** in that column.
-      - If a cell contains "RM 50", extract currency="RM", amount=50.
-      - **NEVER return "NULL" as a string.** If currency is unknown, return empty string "".
-      - Do NOT default to KRW unless explicitly stated.
+      - **Look EVERYWHERE for currency codes**: Headers (e.g. "단가(RM)"), Cell Values (e.g. "RM 500", "$100"), or Summary Tables.
+      - **Explicitly check Column Headers**: If a header says "RM", "USD", "SGD", apply that currency to ALL items in that column.
+      - **Formatted Cells**: If a cell value is "RM 300", extract currency="RM" and amount=300.
+      - **Contextual Inference**: If most items use "RM" and one item has no currency but is in the same column, assume "RM".
+      - **NEVER return "NULL"**. If unknown, return empty string "".
+      - **Do NOT default to KRW** unless the document explicitly says "원" or "KRW".
     - **Total Price (Per Person)**:
       - Look for keywords like "**지상비**", "**1인 상품가**", "**판매가**", "**Total**".
       - If you see "지상비 : 677,000원", extract **677000**.
