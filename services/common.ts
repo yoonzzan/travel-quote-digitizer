@@ -100,6 +100,20 @@ export const cleanJsonString = (text: string): string => {
     return text.trim();
 };
 
+// Helper to clean and split list items
+const cleanList = (list: any[]): string[] => {
+    if (!Array.isArray(list)) return [];
+    return list
+        .flatMap(item => String(item).split(',')) // Split by comma
+        .map(item => item
+            .replace(/불포함\s*입니다\.?/g, '')
+            .replace(/포함\s*입니다\.?/g, '')
+            .replace(/입니다\.?/g, '')
+            .trim()
+        )
+        .filter(item => item.length > 0);
+};
+
 export const normalizeData = (data: any): TravelQuoteData => {
     const validCategories = ["호텔", "차량", "가이드", "관광지", "식사", "기타"];
 
@@ -124,8 +138,8 @@ export const normalizeData = (data: any): TravelQuoteData => {
         cost: {
             total_price: data?.cost?.total_price || 0,
             currency: data?.cost?.currency || 'KRW',
-            inclusions: data?.cost?.inclusions || [],
-            exclusions: data?.cost?.exclusions || [],
+            inclusions: cleanList(data?.cost?.inclusions),
+            exclusions: cleanList(data?.cost?.exclusions),
             shopping_conditions: data?.cost?.shopping_conditions || '',
             exchangeRates: {}, // Initialize empty
             internal_pax: defaultPax > 0 ? defaultPax : 1, // Initialize internal pax for calculation
@@ -208,7 +222,9 @@ export const SYSTEM_INSTRUCTION = `
     2. **Trip Summary**: Title, Pax, Period, Countries, Cities.
     3. **Cost**: 
        - **Total Price**: Customer-facing final price (1 Person).
-       - **Inclusions/Exclusions**: Split items. Remove conversational endings.
+       - **Inclusions/Exclusions**: 
+         - **Split Combined Items**: If a line contains multiple items separated by commas (e.g., "개인경비, 옵션비용, 포터비"), split them into separate strings in the array.
+         - **Clean Text**: Remove conversational phrases like "불포함 입니다", "포함 사항입니다", "별도 문의", "제외" so that ONLY the noun remains (e.g., "개인경비 불포함 입니다." -> "개인경비").
        - **Internal Cost Details**:
          - Extract **EVERY** cost item.
          - **Currency**: Check **HEADERS** first. If the column header is "RM", then every item in that column has currency "RM".
