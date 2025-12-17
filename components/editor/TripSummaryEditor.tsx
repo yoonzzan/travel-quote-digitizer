@@ -2,6 +2,7 @@ import React from 'react';
 import { TravelQuoteData } from '../../types';
 import { Users, ShoppingBag } from 'lucide-react';
 import TagInput from '../common/TagInput';
+import { formatNumber, parseNumber } from '../../utils/format';
 
 interface TripSummaryEditorProps {
     data: TravelQuoteData;
@@ -83,99 +84,136 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
                         handleTripSummaryChange('cities', newTags);
                     }}
                     placeholder="도시 입력 (Enter로 추가)"
-                    colorClass="bg-teal-100 text-teal-700"
+                    colorClass="bg-emerald-100 text-emerald-700"
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">협력사</label>
+            {/* Date & Duration */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="col-span-2 md:col-span-1">
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">시작일</label>
                     <input
-                        type="text"
-                        value={data.quote_info.agency || ''}
-                        onChange={(e) => handleQuoteInfoChange('agency', e.target.value)}
+                        type="date"
+                        value={data.trip_summary.start_date || ''}
+                        onChange={(e) => handleTripSummaryChange('start_date', e.target.value)}
                         className={`w-full ${baseInputStyle}`}
-                        placeholder="여행사명 입력"
+                    />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">종료일</label>
+                    <input
+                        type="date"
+                        value={data.trip_summary.end_date || ''}
+                        onChange={(e) => handleTripSummaryChange('end_date', e.target.value)}
+                        className={`w-full ${baseInputStyle}`}
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">견적 코드</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">박 (Nights)</label>
                     <input
-                        type="text"
-                        value={data.quote_info.code || ''}
-                        onChange={(e) => handleQuoteInfoChange('code', e.target.value)}
+                        type="number"
+                        value={data.trip_summary.nights || ''}
+                        onChange={(e) => handleTripSummaryChange('nights', parseInt(e.target.value) || 0)}
                         className={`w-full ${baseInputStyle}`}
-                        placeholder="견적 코드 입력"
+                        placeholder="0"
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">총 견적 금액 (1인) - 고객용</label>
-                    <div className="flex gap-2 items-stretch">
-                        <input
-                            type="text"
-                            value={data.cost.currency || ''}
-                            onChange={(e) => handleCostChange('currency', e.target.value)}
-                            className={`${baseInputStyle} w-24 text-center`}
-                            placeholder="통화"
-                        />
-                        <input
-                            type="number"
-                            value={data.cost.total_price || ''}
-                            onChange={(e) => handleCostChange('total_price', parseInt(e.target.value) || 0)}
-                            className={`${baseInputStyle} flex-1 font-bold text-right`}
-                            placeholder="금액"
-                        />
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">일 (Days)</label>
+                    <input
+                        type="number"
+                        value={data.trip_summary.days || ''}
+                        onChange={(e) => handleTripSummaryChange('days', parseInt(e.target.value) || 0)}
+                        className={`w-full ${baseInputStyle}`}
+                        placeholder="0"
+                    />
+                </div>
+            </div>
+
+            {/* Pax & Quote Info */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+                {/* Pax */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2 mb-3 text-slate-700 font-bold text-sm">
+                        <Users className="w-4 h-4" /> 인원 설정
+                    </div>
+                    <div className="flex gap-3">
+                        <div className="flex-1">
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1">성인</label>
+                            <input
+                                type="number"
+                                value={data.trip_summary.pax_adult || ''}
+                                onChange={(e) => handleTripSummaryChange('pax_adult', parseInt(e.target.value) || 0)}
+                                className={`w-full ${baseInputStyle}`}
+                                placeholder="0"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1">아동</label>
+                            <input
+                                type="number"
+                                value={data.trip_summary.pax_child || ''}
+                                onChange={(e) => handleTripSummaryChange('pax_child', parseInt(e.target.value) || 0)}
+                                className={`w-full ${baseInputStyle}`}
+                                placeholder="0"
+                            />
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">쇼핑/옵션 조건</label>
-                    <div className="relative">
-                        <ShoppingBag className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                        <input
-                            type="text"
-                            value={data.cost.shopping_conditions || ''}
-                            onChange={(e) => handleCostChange('shopping_conditions', e.target.value)}
-                            placeholder="예: 노쇼핑 노옵션"
-                            className={`w-full ${baseInputStyle} pl-10`}
-                        />
+
+                {/* Quote Currency & Amount */}
+                <div className="md:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2 mb-3 text-slate-700 font-bold text-sm">
+                        <ShoppingBag className="w-4 h-4" /> 견적 금액 설정
+                    </div>
+                    <div className="flex gap-3 items-end">
+                        <div className="w-24">
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1">통화</label>
+                            <input
+                                type="text"
+                                value={data.cost.currency || 'KRW'}
+                                onChange={(e) => handleCostChange('currency', e.target.value)}
+                                className={`w-full ${baseInputStyle} uppercase font-bold text-center`}
+                                placeholder="KRW"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1">총 견적 금액 (1인)</label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={formatNumber(data.cost.total_price)}
+                                    onChange={(e) => handleCostChange('total_price', parseNumber(e.target.value))}
+                                    className={`${baseInputStyle} flex-1 font-bold text-right`}
+                                    placeholder="금액"
+                                />
+                                <span className="text-sm font-bold text-slate-600">원</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Travel Pax Input */}
-            <div className="mt-4 flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-white rounded-md text-hana-purple shadow-sm">
-                        <Users className="w-4 h-4" />
-                    </div>
-                    <label className="text-xs font-bold text-slate-600">여행 인원</label>
+            {/* Quote Number & Date */}
+            <div className="grid grid-cols-2 gap-4 pt-2">
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">견적 번호</label>
+                    <input
+                        type="text"
+                        value={data.quote_info.quote_number || ''}
+                        onChange={(e) => handleQuoteInfoChange('quote_number', e.target.value)}
+                        className={`w-full ${baseInputStyle} bg-slate-50`}
+                        placeholder="자동 생성 또는 입력"
+                    />
                 </div>
-
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-white rounded-md px-2 border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-hana-mint focus-within:border-hana-mint transition-all">
-                        <span className="text-[10px] text-slate-400 font-bold mr-1">성인</span>
-                        <input
-                            type="number"
-                            value={(data.cost.internal_pax_adult ?? data.trip_summary.pax_adult) || ''}
-                            min="0"
-                            onChange={(e) => handleCostChange('internal_pax_adult', parseInt(e.target.value) || 0)}
-                            className="w-12 py-1.5 text-center font-bold text-sm text-slate-900 outline-none bg-transparent"
-                            placeholder="0"
-                        />
-                        <span className="text-xs text-slate-400 font-medium pr-1">명</span>
-                    </div>
-                    <div className="flex items-center bg-white rounded-md px-2 border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-hana-mint focus-within:border-hana-mint transition-all">
-                        <span className="text-[10px] text-slate-400 font-bold mr-1">아동</span>
-                        <input
-                            type="number"
-                            value={(data.cost.internal_pax_child ?? data.trip_summary.pax_child) || ''}
-                            min="0"
-                            onChange={(e) => handleCostChange('internal_pax_child', parseInt(e.target.value) || 0)}
-                            className="w-12 py-1.5 text-center font-bold text-sm text-slate-900 outline-none bg-transparent"
-                            placeholder="0"
-                        />
-                        <span className="text-xs text-slate-400 font-medium pr-1">명</span>
-                    </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">견적 일자</label>
+                    <input
+                        type="date"
+                        value={data.quote_info.quote_date || ''}
+                        onChange={(e) => handleQuoteInfoChange('quote_date', e.target.value)}
+                        className={`w-full ${baseInputStyle}`}
+                    />
                 </div>
             </div>
         </div>

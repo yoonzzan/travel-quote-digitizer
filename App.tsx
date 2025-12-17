@@ -16,6 +16,8 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<'editor' | 'json'>('editor');
+  const [inputType, setInputType] = useState<'file' | 'text'>('file');
+  const [inputText, setInputText] = useState<string>('');
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -26,13 +28,15 @@ const App: React.FC = () => {
   };
 
   const handleConvert = async () => {
-    if (!selectedFile) return;
+    if (inputType === 'file' && !selectedFile) return;
+    if (inputType === 'text' && !inputText.trim()) return;
 
     setStatus(ParsingStatus.PROCESSING);
     setErrorMsg(null);
 
     try {
-      const extractedData = await extractDataFromDocument(selectedFile);
+      const input = inputType === 'file' ? selectedFile! : inputText;
+      const extractedData = await extractDataFromDocument(input);
       setData(extractedData);
       setStatus(ParsingStatus.SUCCESS);
       setActiveTab('editor');
@@ -93,17 +97,49 @@ const App: React.FC = () => {
         </div>
 
         <div className="p-6 space-y-6 flex-1">
-          {/* 1. Upload */}
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-slate-700 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-hana-light text-hana-purple flex items-center justify-center text-xs">1</span>
-              문서 업로드
-            </label>
-            <FileUploader
-              onFileSelect={handleFileSelect}
-              isProcessing={status === ParsingStatus.PROCESSING}
-              selectedFileName={selectedFile?.name}
-            />
+          {/* 1. Input Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-bold text-slate-700 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-hana-light text-hana-purple flex items-center justify-center text-xs">1</span>
+                견적 내용 입력
+              </label>
+              <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                <button
+                  onClick={() => setInputType('file')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${inputType === 'file' ? 'bg-white text-hana-purple shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  파일 업로드
+                </button>
+                <button
+                  onClick={() => setInputType('text')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${inputType === 'text' ? 'bg-white text-hana-purple shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  직접 입력
+                </button>
+              </div>
+            </div>
+
+            {inputType === 'file' ? (
+              <FileUploader
+                onFileSelect={handleFileSelect}
+                isProcessing={status === ParsingStatus.PROCESSING}
+                selectedFileName={selectedFile?.name}
+              />
+            ) : (
+              <textarea
+                value={inputText}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  setStatus(ParsingStatus.IDLE);
+                  setErrorMsg(null);
+                  setData(null);
+                  setActiveTab('editor');
+                }}
+                placeholder="여기에 견적서 텍스트를 직접 붙여넣으세요..."
+                className="w-full h-40 p-3 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-hana-mint focus:border-hana-mint outline-none resize-none placeholder-slate-400 bg-white shadow-sm"
+              />
+            )}
           </div>
 
           {/* 2. Convert Action */}
@@ -114,10 +150,10 @@ const App: React.FC = () => {
             </label>
             <button
               onClick={handleConvert}
-              disabled={!selectedFile || status === ParsingStatus.PROCESSING}
+              disabled={status === ParsingStatus.PROCESSING || (inputType === 'file' ? !selectedFile : !inputText.trim())}
               className={`
                 w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all
-                ${!selectedFile || status === ParsingStatus.PROCESSING
+                ${status === ParsingStatus.PROCESSING || (inputType === 'file' ? !selectedFile : !inputText.trim())
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-hana-purple to-[#7c3aed] hover:to-[#6d28d9] text-white shadow-lg hover:shadow-xl shadow-purple-200 transform active:scale-[0.98]'}
               `}

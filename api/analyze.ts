@@ -32,7 +32,7 @@ const SYSTEM_INSTRUCTION = `
          - **Merged Amount Cells**: If price appears only in the first row of a group, assign it to the first item.
          - **Rows with Empty Amount**: Extract rows with valid Detail but empty/0 Amount as separate items with **Amount = 0**.
          - **Empty Row Exclusion**: If a row has **NO Description/Detail** AND Amount is 0, **DO NOT extract it**.
-         - Categorize into: "호텔", "차량", "가이드", "관광지", "식사", "기타".
+         - Categorize into: "항공", "호텔", "차량", "가이드", "관광지", "식사", "기타".
     4. **Itinerary**: Day-by-day schedule.
 
     Output Format:

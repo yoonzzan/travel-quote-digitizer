@@ -62,3 +62,33 @@
   - 원가 에디터 UX(직접 입력 vs 자동 계산) 논의 후 자동 계산으로 확정.
 - **배운 점/인사이트**: 여행 견적서 PDF는 텍스트 추출만으로도 GPT-5.2가 충분히 구조를 파악함.
 - **고려했던 대안**: PDF -> 이미지 변환 (용량/속도 문제로 기각).
+
+---
+
+# 추가 세션 컨텍스트 - 2025-12-17T21:15:00+09:00
+
+## 추가 활동 개요
+- **메인 태스크**: 금액 표기(천단위 콤마) 개선, 원가 항목 추가(항공), 코드 리팩토링
+- **상태**: 기능 구현 및 리팩토링 완료, 로컬 테스트 정상 작동
+
+## 상세 활동 내역
+- **금액 표기 개선**: `CostEditor` 및 `TripSummaryEditor`의 모든 금액 입력/표시란에 천 단위 콤마(,) 적용.
+- **항목 추가**: 원가 상세 내역에 '항공' 카테고리 추가 및 순서 조정 (항공 -> 호텔 -> ...).
+- **명칭 통일**: 에디터와 인쇄 화면의 카테고리 명칭 통일 (예: '가이드' -> '가이드/기사').
+- **리팩토링 수행**:
+  - `utils/format.ts`: 숫자 포맷팅 함수(`formatNumber`, `parseNumber`) 공통화.
+  - `utils/htmlGenerator.ts`: HTML 생성 로직을 역할별 함수(`renderHeader`, `renderCostSection` 등)로 모듈화.
+  - **[롤백]** `api/prompts.ts`: 프롬프트 분리 시도했으나 Vercel Serverless Function 모듈 참조 에러(500) 발생으로 `api/analyze.ts` 내부로 원복.
+
+## 코드 변경 사항
+- **수정된 파일**:
+  - `components/editor/CostEditor.tsx`: 콤마 적용, 항공 카테고리 추가, 공통 유틸리티 사용.
+  - `components/editor/TripSummaryEditor.tsx`: 콤마 적용, 공통 유틸리티 사용.
+  - `utils/htmlGenerator.ts`: 모듈화 리팩토링, 카테고리 명칭 통일.
+  - `api/analyze.ts`: 프롬프트 분리 시도 후 롤백 (안정성 확보).
+  - `types.ts`: 누락된 타입 정의 추가 (`quote_number`, `quote_date` 등).
+- **새로 생성된 파일**:
+  - `utils/format.ts`: 숫자 포맷팅 공통 함수.
+- **삭제된 파일**:
+  - `api/prompts.ts` (롤백으로 삭제됨).
+  - `utils/prompts.ts` (롤백으로 삭제됨).

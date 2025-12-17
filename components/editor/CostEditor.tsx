@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { TravelQuoteData, CostDetail } from '../../types';
 import { Plus, Trash2, CheckCircle2, XCircle, Calculator, RefreshCw, GripVertical, ChevronDown, ChevronUp, MessageSquareQuote } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
+import { formatNumber, parseNumber } from '../../utils/format';
 
 interface CostEditorProps {
     data: TravelQuoteData;
@@ -12,7 +13,7 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
     const [showDetails, setShowDetails] = React.useState(true);
     const baseInputStyle = "text-sm p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-hana-mint focus:border-hana-mint outline-none bg-white text-slate-900 placeholder-slate-400 transition-all";
     const baseDetailInputStyle = "text-xs p-2 border border-slate-300 rounded focus:border-hana-mint focus:ring-1 focus:ring-hana-mint outline-none bg-white text-slate-900 placeholder-slate-400 transition-all";
-    const costCategories = ["호텔", "차량", "가이드", "관광지", "식사", "기타"];
+    const costCategories = ["항공", "호텔", "차량", "가이드", "관광지", "식사", "기타"];
 
     // --- Handlers ---
     const handleListChange = (type: 'inclusions' | 'exclusions', index: number, value: string) => {
@@ -85,8 +86,6 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
             const p = updatedItem.unit_price ?? 0;
             updatedItem.amount = q * f * p;
         }
-
-
 
         currentDetails[index] = updatedItem;
         onChange({
@@ -378,10 +377,10 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                                     </div>
                                     <div className="relative">
                                         <input
-                                            type="number"
+                                            type="text"
                                             placeholder="금액"
-                                            value={(data.cost.exchangeRates || {})[curr] || ''}
-                                            onChange={(e) => handleExchangeRateChange(curr, parseFloat(e.target.value) || 0)}
+                                            value={formatNumber((data.cost.exchangeRates || {})[curr])}
+                                            onChange={(e) => handleExchangeRateChange(curr, parseNumber(e.target.value))}
                                             className="w-32 pl-3 pr-10 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-hana-purple/20 focus:border-hana-purple outline-none transition-all shadow-inner"
                                         />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold pointer-events-none select-none">KRW</span>
@@ -553,9 +552,9 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                                                     placeholder="KRW"
                                                 />
                                                 <input
-                                                    type="number"
-                                                    value={item.unit_price || ''}
-                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit_price', parseFloat(e.target.value) || 0)}
+                                                    type="text"
+                                                    value={formatNumber(item.unit_price)}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'unit_price', parseNumber(e.target.value))}
                                                     className={`w-24 text-right ${baseDetailInputStyle}`}
                                                     placeholder="단가"
                                                 />
@@ -563,9 +562,9 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                                                     {item.amount?.toLocaleString()}
                                                 </div>
                                                 <input
-                                                    type="number"
-                                                    value={item.profit || ''}
-                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseFloat(e.target.value) || 0)}
+                                                    type="text"
+                                                    value={formatNumber(item.profit)}
+                                                    onChange={(e) => handleCostDetailChange(item.originalIndex, 'profit', parseNumber(e.target.value))}
                                                     className={`w-24 text-right ${baseDetailInputStyle} text-blue-600`}
                                                     placeholder="수익"
                                                 />

@@ -2,34 +2,42 @@
 import { TravelQuoteData } from "../types";
 import { cleanJsonString, normalizeData, parseSpreadsheet, fileToBase64, extractTextFromPdf } from "./common";
 
-export const extractWithBackend = async (file: File): Promise<TravelQuoteData> => {
+export const extractWithBackend = async (fileOrText: File | string): Promise<TravelQuoteData> => {
   let contentPart;
-  const isSpreadsheet = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv');
 
   try {
-    if (isSpreadsheet) {
-      const textContent = await parseSpreadsheet(file);
-      console.log("Parsed Spreadsheet Content Length:", textContent.length);
-      contentPart = { text: textContent };
-    } else if (file.type === 'application/pdf') {
-      console.log("Extracting Text from PDF...");
-      const pdfText = await extractTextFromPdf(file);
-      console.log("Extracted PDF Text Length:", pdfText.length);
-      contentPart = { text: pdfText };
-    } else if (file.type.startsWith('image/')) {
-      const base64Data = await fileToBase64(file);
-      contentPart = {
-        inlineData: {
-          data: base64Data,
-          mimeType: file.type,
-        }
-      };
+    if (typeof fileOrText === 'string') {
+      // Handle direct text input
+      contentPart = { text: fileOrText };
     } else {
-      const textContent = await file.text();
-      contentPart = { text: textContent };
+      // Handle File input
+      const file = fileOrText;
+      const isSpreadsheet = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv');
+
+      if (isSpreadsheet) {
+        const textContent = await parseSpreadsheet(file);
+        console.log("Parsed Spreadsheet Content Length:", textContent.length);
+        contentPart = { text: textContent };
+      } else if (file.type === 'application/pdf') {
+        console.log("Extracting Text from PDF...");
+        const pdfText = await extractTextFromPdf(file);
+        console.log("Extracted PDF Text Length:", pdfText.length);
+        contentPart = { text: pdfText };
+      } else if (file.type.startsWith('image/')) {
+        const base64Data = await fileToBase64(file);
+        contentPart = {
+          inlineData: {
+            data: base64Data,
+            mimeType: file.type,
+          }
+        };
+      } else {
+        const textContent = await file.text();
+        contentPart = { text: textContent };
+      }
     }
   } catch (e: any) {
-    throw new Error(`파일 처리 중 오류 발생: ${e.message}`);
+    throw new Error(`파일/텍스트 처리 중 오류 발생: ${e.message}`);
   }
 
   try {

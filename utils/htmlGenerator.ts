@@ -1,32 +1,22 @@
 
-import { TravelQuoteData } from "../types";
+import { TravelQuoteData, CostDetail } from "../types";
 
-export const generateQuoteHtml = (data: TravelQuoteData): string => {
-  const { quote_info, trip_summary, cost, itinerary } = data;
+// --- Helper Functions ---
 
-  // Helper to format currency robustly
-  const formattedPrice = `${cost.currency} ${new Intl.NumberFormat('ko-KR').format(cost.total_price)}`;
+const formatCurrency = (amount: number, currency: string = 'KRW'): string => {
+  return `${currency} ${new Intl.NumberFormat('ko-KR').format(amount)}`;
+};
 
-  // Hanatour SVG Logo (Inline for Email/Print safety)
-  // Hanatour Logo Image (Using img tag with public path - requires server context or base64 for offline)
-  // For now, we use the public path which works in Print Preview from the app.
-  const logoSvg = `
-    <div style="width: 200px; height: 60px; overflow: hidden; display: flex; align-items: center; justify-content: flex-start;">
-      <img src="/hanatour_logo.png" alt="하나투어" style="height: 100%; width: 100%; object-fit: contain; transform: scale(2.8) translateX(-8px);" />
-    </div>
-  `;
-
-  // Determine Pax counts (prioritize internal cost pax if set)
+const getPaxCounts = (data: TravelQuoteData) => {
+  const { cost, trip_summary } = data;
   const adultPax = cost.internal_pax_adult ?? trip_summary.pax_adult ?? 0;
   const childPax = cost.internal_pax_child ?? trip_summary.pax_child ?? 0;
+  return { adultPax, childPax, totalPax: adultPax + childPax };
+};
 
-  return `
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>여행 견적서 - ${quote_info.code}</title>
+// --- Component Renderers ---
+
+const renderStyles = () => `
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
     
@@ -57,9 +47,6 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       padding: 30px 40px;
       position: relative;
     }
-    .logo-container {
-      /* margin-bottom removed as it is now in brand-header */
-    }
     .header h1 {
       margin: 0;
       font-size: 28px;
@@ -87,7 +74,7 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       grid-template-columns: repeat(3, 1fr);
       gap: 20px;
       padding: 30px 40px;
-      background-color: #ffffff; /* Changed to white */
+      background-color: #ffffff;
       border-bottom: 1px solid #f1f5f9;
     }
     .total-cost-summary {
@@ -153,9 +140,6 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       text-align: right;
       font-family: monospace;
     }
-
-    /* ... existing styles ... */
-
     .summary-item h3 {
       font-size: 11px;
       text-transform: uppercase;
@@ -340,8 +324,6 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       color: #94a3b8;
       font-size: 12px;
     }
-    
-    /* Floating Print Button */
     .print-fab {
       position: fixed;
       bottom: 30px;
@@ -366,8 +348,6 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       transform: translateY(-2px);
       background: #4a227a;
     }
-    
-    /* Detailed Cost Section Styles */
     .cost-details-container {
       padding: 40px;
       background-color: #fff;
@@ -383,7 +363,7 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       overflow: hidden;
-      break-inside: avoid; /* Prevent breaking inside card when printing */
+      break-inside: avoid;
     }
     .category-header {
       background: #f1f5f9;
@@ -436,32 +416,36 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
       margin-right: 2px;
       font-weight: 400;
     }
-    
-    /* Print Specific Styles */
     @media print {
       body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .container { box-shadow: none; margin: 0; width: 100%; max-width: none; border-radius: 0; }
-      .print-fab { display: none !important; } /* Hide button when printing */
+      .print-fab { display: none !important; }
       .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .cost-category-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
       .cost-category-card { break-inside: avoid; page-break-inside: avoid; }
     }
   </style>
-</head>
-<body>
-  <div class="container">
-    <!-- Brand Header with Colored Logo -->
-    <div class="brand-header">
-      ${logoSvg}
-    </div>
+`;
 
-    <!-- Title Banner -->
+const renderLogo = () => `
+  <div style="width: 200px; height: 60px; overflow: hidden; display: flex; align-items: center; justify-content: flex-start;">
+    <img src="/hanatour_logo.png" alt="하나투어" style="height: 100%; width: 100%; object-fit: contain; transform: scale(2.8) translateX(-8px);" />
+  </div>
+`;
+
+const renderHeader = (data: TravelQuoteData) => {
+  const { quote_info, trip_summary } = data;
+  const { adultPax, childPax } = getPaxCounts(data);
+
+  return `
+    <div class="brand-header">
+      ${renderLogo()}
+    </div>
     <div class="header">
       <div class="header-badge">${quote_info.agency || '하나투어'}</div>
       <h1>${trip_summary.title || '여행 견적서'}</h1>
       <p>견적 번호: ${quote_info.code}</p>
     </div>
-    
     <div class="summary-grid">
       <div class="summary-item">
         <h3>여행 기간</h3>
@@ -476,7 +460,14 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
         <p>${trip_summary.start_date || '미정'}</p>
       </div>
     </div>
+  `;
+};
 
+const renderCostSection = (data: TravelQuoteData) => {
+  const { cost } = data;
+  const formattedPrice = formatCurrency(cost.total_price, cost.currency);
+
+  return `
     <div class="section cost-section">
       <h2 class="section-title">견적 포함 내역</h2>
       
@@ -505,22 +496,25 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
         <div class="price-value">${formattedPrice}</div>
       </div>
     </div>
+  `;
+};
 
-    ${quote_info.manager_note ? `
+const renderManagerNote = (data: TravelQuoteData) => {
+  const { quote_info } = data;
+  if (!quote_info.manager_note) return '';
+
+  return `
     <div class="section note-section" style="margin-top: 40px; margin-bottom: 40px; padding: 0 4px; margin-right: 20px;">
       <div style="display: flex; gap: 16px; align-items: flex-start;">
         <div style="flex-shrink: 0; width: 44px; height: 44px; background: transparent; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-top: 0;">
           🧑‍💼
         </div>
         <div style="position: relative; background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-           <!-- SVG Tail for seamless border -->
            <svg width="12" height="20" viewBox="0 0 12 20" style="position: absolute; left: -11px; top: 16px; overflow: visible;">
              <path d="M12 0 L0 10 L12 20" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
-             <path d="M12 0 L12 20" fill="#f8fafc" stroke="none" /> <!-- Cover right border -->
+             <path d="M12 0 L12 20" fill="#f8fafc" stroke="none" />
            </svg>
-           <!-- Cover the border overlap -->
            <div style="position: absolute; left: -1px; top: 16px; width: 2px; height: 20px; background: #f8fafc;"></div>
-
            <div style="font-size: 13px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
              담당자 코멘트
            </div>
@@ -528,8 +522,13 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
         </div>
       </div>
     </div>
-    ` : ''}
+  `;
+};
 
+const renderItinerary = (data: TravelQuoteData) => {
+  const { itinerary } = data;
+
+  return `
     <div class="section">
       <h2 class="section-title">상세 일정</h2>
       <div class="timeline">
@@ -556,167 +555,186 @@ export const generateQuoteHtml = (data: TravelQuoteData): string => {
         `).join('')}
       </div>
     </div>
+  `;
+};
 
-    ${(() => {
-      if (!cost.show_details_in_quote || !cost.details || cost.details.length === 0) return '';
+const renderDetailedCost = (data: TravelQuoteData) => {
+  const { cost } = data;
+  if (!cost.show_details_in_quote || !cost.details || cost.details.length === 0) return '';
 
-      const categories = [
-        { id: "호텔", icon: "🏨", label: "호텔/숙박" },
-        { id: "차량", icon: "🚌", label: "차량/교통" },
-        { id: "가이드", icon: "🚩", label: "가이드/기사" },
-        { id: "관광지", icon: "🎫", label: "관광지/입장료" },
-        { id: "식사", icon: "🍽️", label: "식사" },
-        { id: "기타", icon: "✨", label: "기타 비용" }
-      ];
+  const categories = [
+    { id: "항공", icon: "✈️", label: "항공" },
+    { id: "호텔", icon: "🏨", label: "호텔" },
+    { id: "차량", icon: "🚌", label: "차량" },
+    { id: "가이드", icon: "🚩", label: "가이드/기사" },
+    { id: "관광지", icon: "🎫", label: "관광지" },
+    { id: "식사", icon: "🍽️", label: "식사" },
+    { id: "기타", icon: "✨", label: "기타" }
+  ];
 
-      const cards = categories.map(cat => {
-        const items = cost.details?.filter(d => d.category === cat.id) || [];
-        if (items.length === 0) return '';
+  const cards = categories.map(cat => {
+    const items = cost.details?.filter(d => d.category === cat.id) || [];
+    if (items.length === 0) return '';
 
-        // Calculate category total (simple sum, ignoring mixed currencies for display simplicity or just showing main currency if possible)
-        // For now, we will just sum up the numbers and show the most frequent currency or just list them.
-        // Let's try to group by currency for the header total.
-        const totals: Record<string, number> = {};
-        items.forEach(item => {
-          const curr = (item.currency || 'KRW').toUpperCase();
-          totals[curr] = (totals[curr] || 0) + item.amount + (item.profit || 0);
-        });
-        const totalStr = Object.entries(totals)
-          .map(([curr, amt]) => `${curr} ${new Intl.NumberFormat('ko-KR').format(amt as number)}`)
-          .join(' + ');
+    const totals: Record<string, number> = {};
+    items.forEach(item => {
+      const curr = (item.currency || 'KRW').toUpperCase();
+      totals[curr] = (totals[curr] || 0) + item.amount + (item.profit || 0);
+    });
+    const totalStr = Object.entries(totals)
+      .map(([curr, amt]) => formatCurrency(amt as number, curr))
+      .join(' + ');
 
-        const rows = items.map(item => `
-              <tr>
-                  <td class="item-name">${item.detail}</td>
-                  <td class="item-price">
-                      <span class="currency-label">${item.currency}</span>
-                      ${new Intl.NumberFormat('ko-KR').format(item.amount + (item.profit || 0))}
-                  </td>
-              </tr>
-          `).join('');
+    const rows = items.map(item => `
+          <tr>
+              <td class="item-name">${item.detail}</td>
+              <td class="item-price">
+                  <span class="currency-label">${item.currency}</span>
+                  ${new Intl.NumberFormat('ko-KR').format(item.amount + (item.profit || 0))}
+              </td>
+          </tr>
+      `).join('');
 
-        return `
-            <div class="cost-category-card">
-              <div class="category-header">
-                <div style="display:flex; align-items:center; gap:8px;">
-                   <span class="category-icon">${cat.icon}</span> ${cat.label}
-                </div>
-                <div style="margin-left:auto; font-size:12px; color:#5e2b97; font-weight:700;">
-                   ${totalStr}
-                </div>
-              </div>
-              <table class="category-table">
-                <tbody>
-                  ${rows}
-                </tbody>
-              </table>
+    return `
+        <div class="cost-category-card">
+          <div class="category-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+               <span class="category-icon">${cat.icon}</span> ${cat.label}
             </div>
-          `;
-      }).join('');
-
-      if (!cards) return '';
-
-      const allItems = cost.details || [];
-      const totalByCurrency: Record<string, number> = {};
-      allItems.forEach(item => {
-        const curr = (item.currency || 'KRW').toUpperCase();
-        totalByCurrency[curr] = (totalByCurrency[curr] || 0) + item.amount + (item.profit || 0);
-      });
-
-      const totalCostStr = Object.entries(totalByCurrency)
-        .map(([curr, amt]) => `${curr} ${new Intl.NumberFormat('ko-KR').format(amt)}`)
-        .join(' + ');
-
-      // Calculate Total KRW if exchange rates exist
-      let totalKRW = 0;
-      let hasForeignCurrency = false;
-
-      Object.entries(totalByCurrency).forEach(([curr, amt]) => {
-        if (curr === 'KRW' || curr === 'WON' || curr === '원') {
-          totalKRW += amt;
-        } else {
-          hasForeignCurrency = true;
-          const rate = cost.exchangeRates?.[curr] || 0;
-          if (rate > 0) {
-            totalKRW += amt * rate;
-          }
-        }
-      });
-
-      // Calculate per person if pax exists
-      // Prioritize internal pax set in DataEditor, fallback to trip_summary
-      const adultPax = cost.internal_pax_adult ?? trip_summary.pax_adult ?? 0;
-      const childPax = cost.internal_pax_child ?? trip_summary.pax_child ?? 0;
-      const pax = adultPax + childPax;
-
-      let perPersonStr = '';
-      if (pax > 0) {
-        const perPersonByCurrency = Object.entries(totalByCurrency)
-          .map(([curr, amt]) => `${curr} ${new Intl.NumberFormat('ko-KR').format(Math.round(amt / pax))}`)
-          .join(' + ');
-        perPersonStr = `1인당 약 ${perPersonByCurrency}`;
-      }
-
-      // Format KRW Total String & Exchange Rate Info
-      let krwTotalDisplay = '';
-      let rateInfoDisplay = '';
-
-      if (hasForeignCurrency && totalKRW > 0) {
-        const totalKRWStr = new Intl.NumberFormat('ko-KR').format(Math.round(totalKRW));
-        const perPersonKRWStr = pax > 0 ? new Intl.NumberFormat('ko-KR').format(Math.round(totalKRW / pax)) : '0';
-
-        krwTotalDisplay = `
-            <div class="krw-conversion-box">
-                <div class="krw-total"><span style="font-size:12px; font-weight:800; color:#166534; margin-right: 4px;">원화 환산</span> ≈ KRW ${totalKRWStr}</div>
-                ${pax > 0 ? `<div class="krw-per-person">1인당 약 KRW ${perPersonKRWStr}</div>` : ''}
+            <div style="margin-left:auto; font-size:12px; color:#5e2b97; font-weight:700;">
+               ${totalStr}
             </div>
-          `;
-
-        // Exchange Rate Info
-        const usedRates = Object.keys(totalByCurrency).filter(c => c !== 'KRW' && c !== 'WON' && c !== '원');
-        const rateInfoStr = usedRates.map(c => {
-          const rate = cost.exchangeRates?.[c];
-          return rate ? `1 ${c} = ${new Intl.NumberFormat('ko-KR').format(rate)}원` : null;
-        }).filter(Boolean).join(', ');
-
-        if (rateInfoStr) {
-          rateInfoDisplay = `<div class="exchange-rate-info">ℹ️ 적용 환율: ${rateInfoStr}</div>`;
-        }
-      }
-
-      return `
-      <div class="cost-details-container">
-        <h2 class="section-title">상세 견적 내역</h2>
-        
-        <div class="total-cost-summary">
-           <div class="cost-summary-header">
-             <div class="total-cost-label">총 합계 (Total Cost)</div>
-             ${pax > 0 ? `<div class="pax-badge">👥 성인 ${adultPax}명, 아동 ${childPax}명 기준</div>` : ''}
-           </div>
-           
-           <div class="primary-cost-row">
-              <div class="total-cost-value">${totalCostStr}</div>
-              ${perPersonStr ? `<div style="font-size:12px; color:#64748b; margin-top:4px;">${perPersonStr}</div>` : ''}
-           </div>
-
-           ${krwTotalDisplay}
-           ${rateInfoDisplay}
+          </div>
+          <table class="category-table">
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
         </div>
-
-        <div class="cost-category-grid">
-          ${cards}
-        </div>
-      </div>
       `;
-    })()}
+  }).join('');
 
-    <div class="footer">
-      <p>생성된 견적서 • ${new Date().toLocaleDateString()}</p>
-      <p>가격 및 예약 가능 여부는 변동될 수 있습니다.</p>
+  if (!cards) return '';
+
+  const allItems = cost.details || [];
+  const totalByCurrency: Record<string, number> = {};
+  allItems.forEach(item => {
+    const curr = (item.currency || 'KRW').toUpperCase();
+    totalByCurrency[curr] = (totalByCurrency[curr] || 0) + item.amount + (item.profit || 0);
+  });
+
+  const totalCostStr = Object.entries(totalByCurrency)
+    .map(([curr, amt]) => formatCurrency(amt, curr))
+    .join(' + ');
+
+  // Calculate Total KRW if exchange rates exist
+  let totalKRW = 0;
+  let hasForeignCurrency = false;
+
+  Object.entries(totalByCurrency).forEach(([curr, amt]) => {
+    if (curr === 'KRW' || curr === 'WON' || curr === '원') {
+      totalKRW += amt;
+    } else {
+      hasForeignCurrency = true;
+      const rate = cost.exchangeRates?.[curr] || 0;
+      if (rate > 0) {
+        totalKRW += amt * rate;
+      }
+    }
+  });
+
+  const { totalPax } = getPaxCounts(data);
+
+  let perPersonStr = '';
+  if (totalPax > 0) {
+    const perPersonByCurrency = Object.entries(totalByCurrency)
+      .map(([curr, amt]) => formatCurrency(Math.round(amt / totalPax), curr))
+      .join(' + ');
+    perPersonStr = `1인당 약 ${perPersonByCurrency}`;
+  }
+
+  let krwTotalDisplay = '';
+  let rateInfoDisplay = '';
+
+  if (hasForeignCurrency && totalKRW > 0) {
+    const totalKRWStr = new Intl.NumberFormat('ko-KR').format(Math.round(totalKRW));
+    const perPersonKRWStr = totalPax > 0 ? new Intl.NumberFormat('ko-KR').format(Math.round(totalKRW / totalPax)) : '0';
+
+    krwTotalDisplay = `
+        <div class="krw-conversion-box">
+            <div class="krw-total"><span style="font-size:12px; font-weight:800; color:#166534; margin-right: 4px;">원화 환산</span> ≈ KRW ${totalKRWStr}</div>
+            ${totalPax > 0 ? `<div class="krw-per-person">1인당 약 KRW ${perPersonKRWStr}</div>` : ''}
+        </div>
+      `;
+
+    const usedRates = Object.keys(totalByCurrency).filter(c => c !== 'KRW' && c !== 'WON' && c !== '원');
+    const rateInfoStr = usedRates.map(c => {
+      const rate = cost.exchangeRates?.[c];
+      return rate ? `1 ${c} = ${new Intl.NumberFormat('ko-KR').format(rate)}원` : null;
+    }).filter(Boolean).join(', ');
+
+    if (rateInfoStr) {
+      rateInfoDisplay = `<div class="exchange-rate-info">ℹ️ 적용 환율: ${rateInfoStr}</div>`;
+    }
+  }
+
+  const { adultPax, childPax } = getPaxCounts(data);
+
+  return `
+  <div class="cost-details-container">
+    <h2 class="section-title">상세 견적 내역</h2>
+    
+    <div class="total-cost-summary">
+       <div class="cost-summary-header">
+         <div class="total-cost-label">총 합계 (Total Cost)</div>
+         ${totalPax > 0 ? `<div class="pax-badge">👥 성인 ${adultPax}명, 아동 ${childPax}명 기준</div>` : ''}
+       </div>
+       
+       <div class="primary-cost-row">
+          <div class="total-cost-value">${totalCostStr}</div>
+          ${perPersonStr ? `<div style="font-size:12px; color:#64748b; margin-top:4px;">${perPersonStr}</div>` : ''}
+       </div>
+
+       ${krwTotalDisplay}
+       ${rateInfoDisplay}
+    </div>
+
+    <div class="cost-category-grid">
+      ${cards}
     </div>
   </div>
+  `;
+};
+
+const renderFooter = () => `
+  <div class="footer">
+    <p>생성된 견적서 • ${new Date().toLocaleDateString()}</p>
+    <p>가격 및 예약 가능 여부는 변동될 수 있습니다.</p>
+  </div>
+`;
+
+// --- Main Generator ---
+
+export const generateQuoteHtml = (data: TravelQuoteData): string => {
+  return `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>여행 견적서 - ${data.quote_info.code}</title>
+  ${renderStyles()}
+</head>
+<body>
+  <div class="container">
+    ${renderHeader(data)}
+    ${renderCostSection(data)}
+    ${renderManagerNote(data)}
+    ${renderItinerary(data)}
+    ${renderDetailedCost(data)}
+    ${renderFooter()}
+  </div>
   
-  <!-- Floating Print Button (Visible on screen, Hidden on Print) -->
   <button class="print-fab" onclick="window.print()">
     🖨️ 인쇄 / PDF 저장
   </button>

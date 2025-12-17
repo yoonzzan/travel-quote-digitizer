@@ -3,6 +3,8 @@ export interface QuoteInfo {
   agency: string;
   code: string;
   manager_note?: string; // 담당자 비고 (견적서 포함 내역과 상세 일정 사이에 노출)
+  quote_number?: string;
+  quote_date?: string;
 }
 
 export interface TripSummary {
@@ -11,6 +13,9 @@ export interface TripSummary {
   pax_child: number;
   period_text: string;
   start_date: string;
+  end_date?: string;
+  nights?: number;
+  days?: number;
   countries?: string[];
   cities?: string[];
 }
