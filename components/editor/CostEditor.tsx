@@ -361,29 +361,29 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
 
                 {/* Exchange Rate Calculator Panel */}
                 {uniqueCurrencies.length > 0 && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 mb-6">
-                        <div className="flex items-center gap-2 text-xs font-bold text-hana-purple uppercase tracking-wide">
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            환율 설정 (자동 감지됨)
+                    <div className="flex items-center gap-4 mb-4 px-1">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wide bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                            <RefreshCw className="w-3 h-3" />
+                            환율 설정
                         </div>
-                        <div className="flex flex-wrap gap-4">
+                        <div className="flex flex-wrap gap-3">
                             {uniqueCurrencies.map(curr => (
-                                <div key={curr} className="flex items-center bg-white px-3 py-2 rounded-lg border border-slate-200 gap-3 shadow-sm">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-slate-700">
-                                            {curr} 1
+                                <div key={curr} className="flex items-center bg-white pl-2.5 pr-1 py-1 rounded-lg border border-slate-200 gap-2 shadow-sm focus-within:border-hana-purple focus-within:ring-1 focus-within:ring-hana-purple transition-all">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-bold text-slate-600">
+                                            1 {curr}
                                         </span>
-                                        <span className="text-slate-400 font-bold">=</span>
+                                        <span className="text-slate-300 text-[10px]">=</span>
                                     </div>
                                     <div className="relative">
                                         <input
                                             type="text"
-                                            placeholder="금액"
+                                            placeholder="0"
                                             value={formatNumber((data.cost.exchangeRates || {})[curr])}
                                             onChange={(e) => handleExchangeRateChange(curr, parseNumber(e.target.value))}
-                                            className="w-32 pl-3 pr-10 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-hana-purple/20 focus:border-hana-purple outline-none transition-all shadow-inner"
+                                            className="w-20 pl-2 pr-8 py-1 text-right font-bold text-sm text-slate-800 bg-slate-50 border-none rounded focus:ring-0 outline-none transition-all"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold pointer-events-none select-none">KRW</span>
+                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-medium pointer-events-none select-none">KRW</span>
                                     </div>
                                 </div>
                             ))}
@@ -502,10 +502,10 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                                         </div>
                                     </div>
 
-                                    <div className="p-4 space-y-3">
+                                    <div className="p-4 space-y-3 overflow-x-auto">
                                         {/* Header Row */}
-                                        <div className="flex gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                            <div className="flex-[2] pl-2">상세 내용</div>
+                                        <div className="flex gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider min-w-[760px]">
+                                            <div className="flex-[2] pl-2 min-w-[120px]">상세 내용</div>
                                             <div className="w-14 text-center">단위</div>
                                             <div className="w-14 text-center">수량</div>
                                             <div className="w-14 text-center">횟수</div>
@@ -517,12 +517,12 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                                         </div>
 
                                         {items.map((item) => (
-                                            <div key={item.originalIndex} className="flex gap-2 items-center group">
+                                            <div key={item.originalIndex} className="flex gap-1 items-center group min-w-[760px]">
                                                 <input
                                                     type="text"
                                                     value={item.detail || ''}
                                                     onChange={(e) => handleCostDetailChange(item.originalIndex, 'detail', e.target.value)}
-                                                    className={`flex-[2] ${baseDetailInputStyle}`}
+                                                    className={`flex-[2] min-w-[120px] ${baseDetailInputStyle}`}
                                                     placeholder="상세 내용"
                                                 />
                                                 <input
@@ -579,7 +579,7 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
 
                                         <button
                                             onClick={() => handleAddCostDetail(category)}
-                                            className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-400 hover:text-hana-purple hover:border-hana-purple hover:bg-hana-light/10 transition-all flex items-center justify-center gap-1 mt-2"
+                                            className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-400 hover:text-hana-purple hover:border-hana-purple hover:bg-hana-light/10 transition-all flex items-center justify-center gap-1 mt-2 min-w-[760px]"
                                         >
                                             <Plus className="w-3 h-3" /> 항목 추가
                                         </button>

@@ -71,8 +71,8 @@ const renderStyles = () => `
     }
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 40px;
       padding: 30px 40px;
       background-color: #ffffff;
       border-bottom: 1px solid #f1f5f9;
@@ -437,6 +437,32 @@ const renderHeader = (data: TravelQuoteData) => {
   const { quote_info, trip_summary } = data;
   const { adultPax, childPax } = getPaxCounts(data);
 
+  // 여행 기간 포맷팅
+  let periodDisplay = '';
+
+  // 1. 날짜 정보가 있으면 우선 적용
+  if (trip_summary.start_date && trip_summary.end_date) {
+    periodDisplay = `${trip_summary.start_date} ~ ${trip_summary.end_date}`;
+  }
+
+  // 2. 박/일 정보가 있으면(0 포함) 날짜 뒤에 붙이거나 단독 사용
+  if (trip_summary.nights !== undefined && trip_summary.days !== undefined) {
+    const durationStr = `${trip_summary.nights}박 ${trip_summary.days}일`;
+    if (periodDisplay) {
+      periodDisplay += ` (${durationStr})`;
+    } else {
+      periodDisplay = durationStr;
+    }
+  } else {
+    // 3. 박/일 정보가 없으면 기존 텍스트(period_text) 사용
+    if (!periodDisplay) {
+      periodDisplay = trip_summary.period_text || '-';
+    }
+  }
+
+  // 0박 0일인 경우 깔끔하게 처리
+  if (periodDisplay === '0박 0일') periodDisplay = '-';
+
   return `
     <div class="brand-header">
       ${renderLogo()}
@@ -444,20 +470,16 @@ const renderHeader = (data: TravelQuoteData) => {
     <div class="header">
       <div class="header-badge">${quote_info.agency || '하나투어'}</div>
       <h1>${trip_summary.title || '여행 견적서'}</h1>
-      <p>견적 번호: ${quote_info.code}</p>
+      <p>견적 번호: ${quote_info.code || quote_info.quote_number || '-'}</p>
     </div>
     <div class="summary-grid">
       <div class="summary-item">
         <h3>여행 기간</h3>
-        <p>${trip_summary.period_text}</p>
+        <p>${periodDisplay}</p>
       </div>
       <div class="summary-item">
         <h3>여행 인원</h3>
         <p>성인 ${adultPax}명, 아동 ${childPax}명</p>
-      </div>
-      <div class="summary-item">
-        <h3>출발일</h3>
-        <p>${trip_summary.start_date || '미정'}</p>
       </div>
     </div>
   `;
@@ -708,7 +730,7 @@ const renderDetailedCost = (data: TravelQuoteData) => {
 
 const renderFooter = () => `
   <div class="footer">
-    <p>생성된 견적서 • ${new Date().toLocaleDateString()}</p>
+    <p>견적서 작성일 • ${new Date().toLocaleDateString()}</p>
     <p>가격 및 예약 가능 여부는 변동될 수 있습니다.</p>
   </div>
 `;

@@ -33,6 +33,23 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
         });
     };
 
+    const handleDurationChange = (field: 'nights' | 'days', value: number) => {
+        const currentNights = data.trip_summary.nights || 0;
+        const currentDays = data.trip_summary.days || 0;
+
+        const newNights = field === 'nights' ? value : currentNights;
+        const newDays = field === 'days' ? value : currentDays;
+
+        onChange({
+            ...data,
+            trip_summary: {
+                ...data.trip_summary,
+                [field]: value,
+                period_text: `${newNights}박 ${newDays}일`
+            }
+        });
+    };
+
     return (
         <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3 mb-2">
@@ -91,7 +108,7 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
             {/* Date & Duration */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="col-span-2 md:col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">시작일</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">여행 시작일</label>
                     <input
                         type="date"
                         value={data.trip_summary.start_date || ''}
@@ -100,7 +117,7 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
                     />
                 </div>
                 <div className="col-span-2 md:col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">종료일</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">여행 종료일</label>
                     <input
                         type="date"
                         value={data.trip_summary.end_date || ''}
@@ -113,7 +130,7 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
                     <input
                         type="number"
                         value={data.trip_summary.nights || ''}
-                        onChange={(e) => handleTripSummaryChange('nights', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleDurationChange('nights', parseInt(e.target.value) || 0)}
                         className={`w-full ${baseInputStyle}`}
                         placeholder="0"
                     />
@@ -123,7 +140,7 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
                     <input
                         type="number"
                         value={data.trip_summary.days || ''}
-                        onChange={(e) => handleTripSummaryChange('days', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleDurationChange('days', parseInt(e.target.value) || 0)}
                         className={`w-full ${baseInputStyle}`}
                         placeholder="0"
                     />
@@ -194,25 +211,35 @@ const TripSummaryEditor: React.FC<TripSummaryEditorProps> = ({ data, onChange })
                 </div>
             </div>
 
-            {/* Quote Number & Date */}
-            <div className="grid grid-cols-2 gap-4 pt-2">
+            {/* Quote Number, Date & Agency */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                 <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1.5">견적 번호</label>
                     <input
                         type="text"
-                        value={data.quote_info.quote_number || ''}
-                        onChange={(e) => handleQuoteInfoChange('quote_number', e.target.value)}
+                        value={data.quote_info.code || ''}
+                        onChange={(e) => handleQuoteInfoChange('code', e.target.value)}
                         className={`w-full ${baseInputStyle} bg-slate-50`}
-                        placeholder="자동 생성 또는 입력"
+                        placeholder="하나투어 견적번호 입력"
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5">견적 일자</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">견적 생성 일자</label>
                     <input
                         type="date"
                         value={data.quote_info.quote_date || ''}
                         onChange={(e) => handleQuoteInfoChange('quote_date', e.target.value)}
                         className={`w-full ${baseInputStyle}`}
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5">협력사 (Agency)</label>
+                    <input
+                        type="text"
+                        value={data.quote_info.agency || ''}
+                        onChange={(e) => handleQuoteInfoChange('agency', e.target.value)}
+                        className={`w-full ${baseInputStyle}`}
+                        placeholder="여행사명 입력"
                     />
                 </div>
             </div>

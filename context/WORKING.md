@@ -92,3 +92,51 @@
 - **삭제된 파일**:
   - `api/prompts.ts` (롤백으로 삭제됨).
   - `utils/prompts.ts` (롤백으로 삭제됨).
+
+# 추가 세션 컨텍스트 - 2025-12-17T22:30:00+09:00
+
+## 추가 활동 개요
+- **메인 태스크**: 견적서 헤더 레이아웃 개선, 여행 기간 로직 동기화, UI 간소화
+- **상태**: 기능 구현 완료, 로컬 테스트 정상 작동
+
+## 상세 활동 내역
+- **헤더 레이아웃 개선**:
+  - `utils/htmlGenerator.ts`: "출발일" 항목 제거, 3열 -> 2열 레이아웃 변경, 간격 확대(40px).
+  - 인쇄 시 "여행 기간"과 "여행 인원"만 깔끔하게 표시되도록 수정.
+- **여행 기간 로직 동기화**:
+  - `components/editor/ItineraryEditor.tsx`: "총 여행 기간" 입력 필드 및 관련 로직 제거 (중복 제거).
+  - `components/editor/TripSummaryEditor.tsx`: 박(Nights)/일(Days) 입력 시 `period_text`("N박 M일") 자동 동기화 로직 추가.
+  - `utils/htmlGenerator.ts`: 여행 기간 표시 우선순위 변경 (`nights`/`days` > `period_text`). "0박 0일"일 경우 "-"로 표시.
+- **UI/UX 개선**:
+  - `components/editor/TripSummaryEditor.tsx`: 견적 번호 placeholder를 "하나투어 견적번호 입력"으로 변경.
+  - `utils/htmlGenerator.ts`: 푸터 문구를 "생성된 견적서" -> "견적서 작성일"로 변경.
+  - `components/common/TagInput.tsx`: 태그 목록과 입력 필드를 통합하여 UI 간소화 및 공간 효율성 증대.
+
+## 코드 변경 사항
+- **수정된 파일**:
+  - `utils/htmlGenerator.ts`: 헤더 레이아웃, 여행 기간 표시 로직, 푸터 문구 수정.
+  - `components/editor/ItineraryEditor.tsx`: 총 여행 기간 입력 필드 제거.
+  - `components/editor/TripSummaryEditor.tsx`: 박/일 동기화 핸들러 추가, placeholder 수정.
+  - `components/common/TagInput.tsx`: UI 구조 변경 (통합형).
+
+# 추가 세션 컨텍스트 - 2025-12-17T22:50:00+09:00
+
+## 추가 활동 개요
+- **메인 태스크**: 데이터 파싱 정확도 향상 (견적번호, PDF/엑셀), 안정성 강화
+- **상태**: 파싱 로직 개선 완료, 에러 핸들링 강화
+
+## 상세 활동 내역
+- **견적번호 파싱 정확도 개선**:
+  - `api/analyze.ts`: 프롬프트에 'Q'로 시작하는 견적번호 패턴(예: QJ0060322200) 명시.
+  - **후처리 로직 추가**: AI가 견적번호를 놓칠 경우를 대비해, 서버 응답 처리 단계에서 정규식(`/\bQ[A-Z0-9]{8,}\b/`)으로 원본 텍스트를 스캔하여 강제로 주입하는 이중 안전장치 구현.
+- **파일 처리 로직 개선**:
+  - `services/common.ts` (PDF): 텍스트 추출 시 Y좌표 변화를 감지하여 줄바꿈(`\n`)을 삽입, 문서 구조(표/헤더) 보존력 강화. 한글 폰트 깨짐 방지를 위한 `cMap` 설정 추가.
+  - `services/common.ts` (Excel): `FileReader`를 `file.arrayBuffer()`로 리팩토링하여 안정성 확보 및 `NotReadableError`(파일 잠김) 에러 핸들링 추가.
+- **버그 수정**:
+  - `components/common/TagInput.tsx`: UI 개선 중 발생한 문법 오류 수정.
+
+## 코드 변경 사항
+- **수정된 파일**:
+  - `api/analyze.ts`: 프롬프트 강화, 정규식 후처리 로직 추가.
+  - `services/common.ts`: `extractTextFromPdf` (줄바꿈, cMap), `parseSpreadsheet` (arrayBuffer 전환).
+  - `components/common/TagInput.tsx`: 문법 오류 수정.

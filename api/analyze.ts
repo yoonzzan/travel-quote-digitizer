@@ -19,7 +19,11 @@ const SYSTEM_INSTRUCTION = `
     - **Numbers**: Extract EXACT numbers. No auto-multiplication.
     
     Extraction Rules:
-    1. **Quote Info**: Code, Agency.
+    1. **Quote Info**: 
+       - **Code (IMPORTANT)**: Look for keywords like "**견적번호**", "**Quote No**", "**Ref**".
+         - **Pattern**: It often starts with "**Q**" followed by numbers/letters (e.g., "QJ0060322200", "QA12345").
+         - Example: If text says "■ 견적번호 : QJ0060322200", extract "QJ0060322200".
+       - **Agency**: Agency name.
     2. **Trip Summary**: Title, Pax, Period, Countries, Cities.
     3. **Cost**: 
        - **Total Price**: Customer-facing final price (1 Person).
@@ -32,7 +36,16 @@ const SYSTEM_INSTRUCTION = `
          - **Merged Amount Cells**: If price appears only in the first row of a group, assign it to the first item.
          - **Rows with Empty Amount**: Extract rows with valid Detail but empty/0 Amount as separate items with **Amount = 0**.
          - **Empty Row Exclusion**: If a row has **NO Description/Detail** AND Amount is 0, **DO NOT extract it**.
-         - Categorize into: "항공", "호텔", "차량", "가이드", "관광지", "식사", "기타".
+         - **Categorization Rules**:
+36:            - **"항공"**: Keywords like "항공료", "항공", "Airfare", "Ticket", "Flight".
+37:            - **"호텔"**: Keywords like "호텔", "숙박", "Hotel", "Resort", "Accommodation".
+38:            - **"차량"**: Keywords like "차량", "버스", "송영", "Transport", "Bus", "Van".
+39:            - **"가이드"**: Keywords like "가이드", "기사", "Guide", "Driver".
+40:            - **"관광지"**: Keywords like "관광", "입장료", "Ticket", "Admission".
+41:            - **"식사"**: Keywords like "식사", "조식", "중식", "석식", "Meal", "Lunch", "Dinner".
+42:            - **"기타"**: Anything else.
+43:          - **Use 'Category' Column**: If the table has a 'Category' (구분) column (e.g. "항공", "호텔"), use it to categorize ALL items in that section.
+44:          - Categorize into: "항공", "호텔", "차량", "가이드", "관광지", "식사", "기타".
     4. **Itinerary**: Day-by-day schedule.
 
     Output Format:
@@ -124,8 +137,29 @@ export default async function handler(req: any, res: any) {
             temperature: 0.1, // Low temperature for extraction
         });
 
-        const text = completion.choices[0].message.content;
-        return res.status(200).json({ result: text });
+        const rawJson = completion.choices[0].message.content || "{}";
+
+        try {
+            const parsedData = JSON.parse(rawJson);
+
+            // [후처리] 견적번호가 AI에 의해 추출되지 않았을 경우, 정규식으로 강제 추출 시도
+            if ((!parsedData.quote_info?.code || parsedData.quote_info.code === "NULL") && content.text) {
+                // Q로 시작하고 영숫자가 8자리 이상 이어지는 패턴 (예: QJ0060322200)
+                const quoteCodeMatch = content.text.match(/\bQ[A-Z0-9]{8,}\b/);
+                if (quoteCodeMatch) {
+                    if (!parsedData.quote_info) parsedData.quote_info = {};
+                    parsedData.quote_info.code = quoteCodeMatch[0];
+                    console.log("[Analyze] Quote Code extracted via Regex:", quoteCodeMatch[0]);
+                }
+            }
+
+            return res.status(200).json({ result: JSON.stringify(parsedData) });
+
+        } catch (e) {
+            console.error("JSON Parse Error during post-processing:", e);
+            // 파싱 실패 시 원본 그대로 반환 (클라이언트에서 처리하도록)
+            return res.status(200).json({ result: rawJson });
+        }
 
     } catch (error: any) {
         console.error("OpenAI API Error:", error);

@@ -25,26 +25,25 @@ const TagInput: React.FC<TagInputProps> = ({ label, tags = [], onAdd, onRemove, 
     return (
         <div>
             <label className="block text-xs font-bold text-slate-500 mb-1.5">{label}</label>
-            <div className="flex flex-wrap gap-2 mb-2 min-h-[26px]">
-                {tags.length > 0 ? (
-                    tags.map((tag, index) => (
-                        <span key={index} className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${colorClass}`}>
-                            {tag}
-                            <button onClick={() => onRemove(index)} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
-                        </span>
-                    ))
-                ) : (
-                    <span className="text-xs text-slate-300 py-1">등록된 태그가 없습니다.</span>
-                )}
-            </div>
-            <div className="relative">
+            <div className="flex flex-wrap items-center gap-2 p-2 border border-slate-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-hana-mint focus-within:border-hana-mint transition-all min-h-[42px]">
+                {tags.map((tag, index) => (
+                    <span key={index} className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 ${colorClass}`}>
+                        {tag}
+                        <button
+                            onClick={() => onRemove(index)}
+                            className="hover:text-red-600 transition-colors bg-white/50 rounded-full p-0.5"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </span>
+                ))}
                 <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="w-full text-sm p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-hana-mint focus:border-hana-mint outline-none bg-white text-slate-900 placeholder-slate-400 transition-all"
-                    placeholder={placeholder}
+                    className="flex-1 min-w-[120px] text-sm bg-transparent border-none outline-none text-slate-900 placeholder-slate-400"
+                    placeholder={tags.length === 0 ? placeholder : ""}
                 />
             </div>
         </div>

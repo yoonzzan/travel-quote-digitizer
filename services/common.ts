@@ -42,22 +42,32 @@ export const fileToBase64 = async (file: File): Promise<string> => {
 export const extractTextFromPdf = async (file: File): Promise<string> => {
     try {
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+            cMapPacked: true,
+        }).promise;
         let fullText = `--- PDF DOCUMENT: ${file.name} (Total Pages: ${pdf.numPages}) ---\n`;
 
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
 
-            // Simple text extraction: join all items with a space
-            // Note: This loses some layout structure, but GPT is good at inferring context.
-            // For better table structure, we could try to sort by Y/X coordinates, but simple join is often enough for LLMs.
-            const pageText = textContent.items
-                .map((item: any) => item.str)
-                .join(' ');
+            // Improved text extraction with layout preservation
+            let lastY, text = '';
+            for (const item of textContent.items as any[]) {
+                if (lastY == item.transform[5] || !lastY) {
+                    text += item.str + ' '; // Same line
+                } else {
+                    text += '\n' + item.str + ' '; // New line
+                }
+                lastY = item.transform[5];
+            }
 
-            fullText += `\n--- Page ${i} ---\n${pageText}\n`;
+            fullText += `\n--- Page ${i} ---\n${text}\n`;
         }
+
+        console.log("[PDF Debug] Extracted Text Preview (First 500 chars):", fullText.substring(0, 500));
 
         return fullText;
     } catch (error: any) {
@@ -68,64 +78,45 @@ export const extractTextFromPdf = async (file: File): Promise<string> => {
 
 
 export const parseSpreadsheet = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
+    if (!window.XLSX) {
+        throw new Error("엑셀 처리 라이브러리가 로드되지 않았습니다. 페이지를 새로고침 후 다시 시도해주세요.");
+    }
 
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = window.XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+        let fullText = `--- DOCUMENT START: ${file.name} ---\n`;
 
-                if (!window.XLSX) {
-                    reject(new Error("엑셀 처리 라이브러리가 로드되지 않았습니다. 페이지를 새로고침 후 다시 시도해주세요."));
-                    return;
-                }
+        workbook.SheetNames.forEach((sheetName: string) => {
+            const worksheet = workbook.Sheets[sheetName];
+            // Use raw: false to get formatted strings (e.g. "RM 500" instead of 500)
+            const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
 
-                const workbook = window.XLSX.read(data, { type: 'array', cellDates: true });
-                let fullText = `--- DOCUMENT START: ${file.name} ---\n`;
-
-                workbook.SheetNames.forEach((sheetName: string) => {
-                    const worksheet = workbook.Sheets[sheetName];
-                    // Use raw: false to get formatted strings (e.g. "RM 500" instead of 500)
-                    const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
-
-                    if (jsonData && jsonData.length > 0) {
-                        fullText += `\n[SHEET: ${sheetName}]\n`;
-                        jsonData.forEach((row: any[]) => {
-                            const rowStr = row.map((cell: any) => {
-                                if (cell === null || cell === undefined) return "";
-                                return String(cell).replace(/[\r\n]+/g, " ").trim();
-                            }).join(" | ");
-                            fullText += `| ${rowStr} |\n`;
-                        });
-                    }
+            if (jsonData && jsonData.length > 0) {
+                fullText += `\n[SHEET: ${sheetName}]\n`;
+                jsonData.forEach((row: any[]) => {
+                    const rowStr = row.map((cell: any) => {
+                        if (cell === null || cell === undefined) return "";
+                        return String(cell).replace(/[\r\n]+/g, " ").trim();
+                    }).join(" | ");
+                    fullText += `| ${rowStr} |\n`;
                 });
-
-                if (fullText.length > 200000) {
-                    fullText = fullText.substring(0, 200000) + "\n... (Content Truncated) ...";
-                }
-
-                resolve(fullText);
-            } catch (error: any) {
-                console.error("SheetJS processing error:", error);
-                if (file.name.toLowerCase().endsWith('.csv')) {
-                    const textReader = new FileReader();
-                    textReader.onload = (ev) => resolve(ev.target?.result as string);
-                    textReader.onerror = () => reject(new Error("CSV 텍스트 읽기 실패"));
-                    textReader.readAsText(file);
-                } else {
-                    const errorMessage = error instanceof Error ? error.message : "알 수 없는 파싱 오류";
-                    reject(new Error(`엑셀 파일 변환 실패: ${errorMessage}`));
-                }
             }
-        };
+        });
 
-        reader.onerror = () => {
-            console.error("FileReader Error:", reader.error);
-            reject(new Error(`파일 읽기 실패: ${reader.error?.message || "알 수 없는 오류"}`));
-        };
+        if (fullText.length > 200000) {
+            fullText = fullText.substring(0, 200000) + "\n... (Content Truncated) ...";
+        }
 
-        reader.readAsArrayBuffer(file);
-    });
+        return fullText;
+
+    } catch (error: any) {
+        console.error("Spreadsheet Parsing Error:", error);
+        if (error.name === 'NotReadableError') {
+            throw new Error("파일을 읽을 수 없습니다. 파일이 다른 프로그램(Excel 등)에서 열려있는지 확인하고 닫은 후 다시 시도해주세요.");
+        }
+        throw new Error(`엑셀 파일 변환 실패: ${error.message || "알 수 없는 오류"}`);
+    }
 };
 
 // Robust JSON cleaner
