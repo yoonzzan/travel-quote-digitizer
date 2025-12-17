@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ParsingStatus, TravelQuoteData } from './types';
 import { extractDataFromDocument } from './services/aiService';
 import { generateQuoteHtml } from './utils/htmlGenerator';
@@ -8,7 +8,7 @@ import JsonViewer from './components/JsonViewer';
 import DocumentPreview from './components/DocumentPreview';
 import DataEditor from './components/DataEditor';
 import HanatourLogo from './components/HanatourLogo';
-import { ArrowRight, AlertCircle, Loader2, Edit3, Code, KeyRound, Save, Printer, Download } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2, Edit3, Code, Printer, Download } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<ParsingStatus>(ParsingStatus.IDLE);
@@ -16,28 +16,6 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<'editor' | 'json'>('editor');
-
-  // API Key Management
-  const [apiKey, setApiKey] = useState<string>('');
-  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
-  const [tempApiKey, setTempApiKey] = useState<string>('');
-
-  useEffect(() => {
-    const storedKey = localStorage.getItem('gemini_api_key');
-    if (storedKey) {
-      setApiKey(storedKey);
-    } else {
-      setShowApiKeyModal(true);
-    }
-  }, []);
-
-  const saveApiKey = (key: string) => {
-    if (!key.trim()) return;
-    localStorage.setItem('gemini_api_key', key);
-    setApiKey(key);
-    setShowApiKeyModal(false);
-    setTempApiKey('');
-  };
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -49,16 +27,12 @@ const App: React.FC = () => {
 
   const handleConvert = async () => {
     if (!selectedFile) return;
-    if (!apiKey) {
-      setShowApiKeyModal(true);
-      return;
-    }
 
     setStatus(ParsingStatus.PROCESSING);
     setErrorMsg(null);
 
     try {
-      const extractedData = await extractDataFromDocument(selectedFile, apiKey);
+      const extractedData = await extractDataFromDocument(selectedFile);
       setData(extractedData);
       setStatus(ParsingStatus.SUCCESS);
       setActiveTab('editor');
@@ -107,51 +81,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-900 flex flex-col lg:flex-row overflow-hidden lg:overflow-visible">
 
-      {/* API Key Modal */}
-      {showApiKeyModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-300 border-t-4 border-hana-purple">
-            <div className="flex items-center gap-3 mb-4 text-hana-purple">
-              <div className="p-2 bg-hana-light rounded-lg">
-                <KeyRound className="w-6 h-6" />
-              </div>
-              <h2 className="text-xl font-bold">API 키 설정</h2>
-            </div>
-            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-              서비스를 사용하려면 AI API 키가 필요합니다.<br />
-              <strong>Google Gemini</strong> 또는 <strong>OpenAI (ChatGPT)</strong> 키를 입력하세요.<br />
-              <span className="text-xs text-slate-400 mt-1 block">발급받은 키는 브라우저에만 안전하게 저장됩니다.</span>
-            </p>
-            <input
-              type="password"
-              placeholder="AIzaSy... (Google) or sk-... (OpenAI)"
-              className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-hana-mint outline-none font-mono text-sm bg-white text-slate-900 placeholder-slate-400"
-              value={tempApiKey}
-              onChange={(e) => setTempApiKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveApiKey(tempApiKey);
-              }}
-            />
-            <div className="flex gap-2">
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-2.5 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 text-center transition-colors"
-              >
-                Google 키 발급
-              </a>
-              <button
-                onClick={() => saveApiKey(tempApiKey)}
-                className="flex-1 py-2.5 px-4 rounded-lg bg-hana-purple text-white text-sm font-medium hover:bg-[#4a227a] shadow-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <Save className="w-4 h-4" /> 저장하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Sidebar (Mobile: Top / Desktop: Left) */}
       <aside className="w-full lg:w-96 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex-shrink-0 flex flex-col h-auto lg:h-screen lg:sticky lg:top-0 z-30 overflow-y-auto custom-scrollbar shadow-sm lg:shadow-none">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between lg:block">
@@ -161,7 +90,6 @@ const App: React.FC = () => {
             </div>
             <p className="text-xs text-slate-500 font-medium pl-1">AI 스마트 견적 비서</p>
           </div>
-          {/* Removed hamburger menu as it is redundant in this layout */}
         </div>
 
         <div className="p-6 space-y-6 flex-1">
@@ -224,15 +152,6 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-
-        <div className="p-4 border-t border-slate-100 lg:mt-auto bg-slate-50/50">
-          <button
-            onClick={() => setShowApiKeyModal(true)}
-            className="w-full text-xs text-slate-400 hover:text-hana-purple transition-colors flex items-center justify-center gap-1 py-2"
-          >
-            <KeyRound className="w-3 h-3" /> API 키 재설정
-          </button>
         </div>
       </aside>
 

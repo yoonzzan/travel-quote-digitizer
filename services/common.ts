@@ -8,6 +8,16 @@ declare global {
     }
 }
 
+
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker source for Vite
+// This ensures the worker is bundled correctly and loaded from the local server, avoiding CDN issues.
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+).toString();
+
 export const fileToBase64 = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -28,6 +38,34 @@ export const fileToBase64 = async (file: File): Promise<string> => {
         reader.readAsDataURL(file);
     });
 };
+
+export const extractTextFromPdf = async (file: File): Promise<string> => {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = `--- PDF DOCUMENT: ${file.name} (Total Pages: ${pdf.numPages}) ---\n`;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+
+            // Simple text extraction: join all items with a space
+            // Note: This loses some layout structure, but GPT is good at inferring context.
+            // For better table structure, we could try to sort by Y/X coordinates, but simple join is often enough for LLMs.
+            const pageText = textContent.items
+                .map((item: any) => item.str)
+                .join(' ');
+
+            fullText += `\n--- Page ${i} ---\n${pageText}\n`;
+        }
+
+        return fullText;
+    } catch (error: any) {
+        console.error("PDF Text Extraction Error:", error);
+        throw new Error("PDF에서 텍스트를 추출하는 중 오류가 발생했습니다. (암호화된 파일인지 확인해주세요)");
+    }
+};
+
 
 export const parseSpreadsheet = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -147,12 +185,13 @@ export const normalizeData = (data: any): TravelQuoteData => {
                 .map((d: any) => {
                     let cat = d?.category || '기타';
                     let detailText = (d?.detail || '').trim();
-                    const amountVal = typeof d?.amount === 'number' ? d.amount : 0;
                     let currencyVal = (d?.currency || '').trim();
                     if (currencyVal.toUpperCase() === 'NULL') currencyVal = '';
 
+                    const rawAmount = typeof d?.amount === 'number' ? d.amount : 0;
+
                     // --- FILTER LOGIC: Remove empty items ---
-                    if (!detailText && amountVal === 0) return null;
+                    if (!detailText && rawAmount === 0) return null;
 
                     // --- UX LOGIC: Remove "정보없음" placeholders ---
                     if (detailText === "정보없음" || detailText === "내용없음") detailText = "";
@@ -168,17 +207,31 @@ export const normalizeData = (data: any): TravelQuoteData => {
                         else if (combinedText.includes('가이드') || combinedText.includes('기사') || combinedText.includes('팁') || combinedText.includes('인솔자')) cat = '가이드';
                         else cat = '기타';
                     }
+
+                    // --- Consistency Logic ---
+                    const q = typeof d?.quantity === 'number' ? d.quantity : 1;
+                    const f = typeof d?.frequency === 'number' ? d.frequency : 1;
+                    let p = typeof d?.unit_price === 'number' ? d.unit_price : 0;
+                    let amt = rawAmount;
+
+                    // Priority 1: If Unit Price exists, calculate Amount.
+                    if (p > 0) {
+                        amt = q * f * p;
+                    }
+                    // Priority 2: If Amount exists but Unit Price is 0, calculate Unit Price.
+                    else if (amt > 0) {
+                        p = amt / (q * f);
+                    }
+
                     return {
                         category: cat,
                         detail: detailText,
                         currency: currencyVal,
-                        amount: amountVal,
+                        amount: amt,
                         unit: d?.unit || '',
-                        quantity: typeof d?.quantity === 'number' ? d.quantity : 1,
-                        frequency: typeof d?.frequency === 'number' ? d.frequency : 1,
-                        unit_price: (typeof d?.unit_price === 'number' && d.unit_price > 0)
-                            ? d.unit_price
-                            : (amountVal > 0 && (typeof d?.quantity !== 'number' || d.quantity === 1)) ? amountVal : 0,
+                        quantity: q,
+                        frequency: f,
+                        unit_price: p,
                         note: d?.note || ''
                     };
                 })

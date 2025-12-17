@@ -86,6 +86,8 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
             updatedItem.amount = q * f * p;
         }
 
+
+
         currentDetails[index] = updatedItem;
         onChange({
             ...data,
@@ -557,7 +559,7 @@ const CostEditor: React.FC<CostEditorProps> = ({ data, onChange }) => {
                                                     className={`w-24 text-right ${baseDetailInputStyle}`}
                                                     placeholder="단가"
                                                 />
-                                                <div className={`w-24 text-right px-2 py-2 text-xs font-bold ${item.amount === 0 ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                <div className={`w-24 text-right px-2 py-2 text-xs font-bold ${item.amount === 0 ? 'text-slate-300' : 'text-slate-700'} bg-slate-50 rounded border border-transparent`}>
                                                     {item.amount?.toLocaleString()}
                                                 </div>
                                                 <input
